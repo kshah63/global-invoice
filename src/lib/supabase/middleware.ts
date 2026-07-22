@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-const PROTECTED_PREFIXES = ["/hr", "/team", "/dept"];
+const PROTECTED_PREFIXES = ["/hr", "/team", "/dept", "/account"];
 
 /**
  * Refreshes the Supabase auth session on every request and redirects

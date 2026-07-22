@@ -1,7 +1,9 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
@@ -53,15 +55,27 @@ function ratesRows(teamMemberId: string, rates: RateInput[]) {
 // --- Create ---------------------------------------------------------------
 
 export async function createTeamMember(
-  input: TeamMemberInput & { password: string }
+  input: TeamMemberInput & { password?: string; sendWelcomeEmail?: boolean }
 ): Promise<{ error?: string }> {
   await ensureHr();
   const admin = createAdminClient();
 
+  const sendEmail = input.sendWelcomeEmail !== false;
+  let password = (input.password ?? "").trim();
+  if (!sendEmail && password.length < 8) {
+    return {
+      error:
+        "Set an initial password of at least 8 characters, or enable the welcome email.",
+    };
+  }
+  // When we're emailing a set-password link, HR can leave the password blank —
+  // we create the account with a strong random one they never need to see.
+  if (!password) password = randomBytes(12).toString("base64url");
+
   // 1) Create the login account (trigger creates the matching profile row).
   const { data: created, error: cErr } = await admin.auth.admin.createUser({
     email: input.email,
-    password: input.password,
+    password,
     email_confirm: true,
     user_metadata: { role: "team_member", full_name: input.name },
     app_metadata: { role: "team_member" },
@@ -106,8 +120,25 @@ export async function createTeamMember(
     if (rErr) return { error: `Team member created, but rates failed: ${rErr.message}` };
   }
 
+  let okMsg = "Team member created.";
+  if (sendEmail) {
+    try {
+      const h = headers();
+      const host = h.get("x-forwarded-host") ?? h.get("host");
+      const proto = h.get("x-forwarded-proto") ?? "https";
+      if (host) {
+        await supabase.auth.resetPasswordForEmail(input.email, {
+          redirectTo: `${proto}://${host}/auth/callback?next=/reset-password`,
+        });
+        okMsg = `Team member created. A set-password email was sent to ${input.email}.`;
+      }
+    } catch {
+      // Best effort — the account exists; HR can reset the password manually.
+    }
+  }
+
   revalidatePath("/hr/team-members");
-  redirect(`/hr/team-members/${tm.id}?ok=${encodeURIComponent("Team member created.")}`);
+  redirect(`/hr/team-members/${tm.id}?ok=${encodeURIComponent(okMsg)}`);
 }
 
 // --- Update ---------------------------------------------------------------

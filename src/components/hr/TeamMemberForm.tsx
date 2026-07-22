@@ -52,6 +52,7 @@ export function TeamMemberForm({
   const [email, setEmail] = useState(initial?.email ?? "");
   const [employeeId, setEmployeeId] = useState(initial?.employee_id ?? "");
   const [password, setPassword] = useState("");
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
   const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_number ?? "");
   const [dateJoined, setDateJoined] = useState(initial?.date_joined ?? "");
   const [nationality, setNationality] = useState(initial?.nationality ?? "");
@@ -126,15 +127,17 @@ export function TeamMemberForm({
       setError("Employee ID must be a 4-digit code.");
       return;
     }
-    if (mode === "create" && password.length < 8) {
-      setError("Set an initial password of at least 8 characters.");
+    if (mode === "create" && !sendWelcomeEmail && password.length < 8) {
+      setError(
+        "Set an initial password of at least 8 characters, or enable the welcome email."
+      );
       return;
     }
     setSaving(true);
     const input = buildInput();
     const res =
       mode === "create"
-        ? await createTeamMember({ ...input, password })
+        ? await createTeamMember({ ...input, password, sendWelcomeEmail })
         : await updateTeamMember(id!, input);
     // On success the action redirects; we only get here on error.
     if (res?.error) {
@@ -328,16 +331,42 @@ export function TeamMemberForm({
       {mode === "create" && (
         <Card>
           <CardHeader
-            title="Login"
-            description="An initial password for their account. Share it securely (e.g. via WhatsApp)."
+            title="Login & onboarding"
+            description="How this team member first gets into their account."
           />
-          <CardBody>
+          <CardBody className="space-y-4">
+            <label className="flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={sendWelcomeEmail}
+                onChange={(e) => setSendWelcomeEmail(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-brand-600"
+              />
+              <span>
+                <span className="font-medium text-ink-800">
+                  Email them a link to set their own password
+                </span>
+                <span className="mt-0.5 block text-ink-500">
+                  Recommended — no need to share a password manually. They&apos;ll
+                  log in with their employee ID afterwards.
+                </span>
+              </span>
+            </label>
+
             <div className="flex flex-wrap items-end gap-3">
-              <Field label="Initial password" className="flex-1">
+              <Field
+                label={sendWelcomeEmail ? "Initial password (optional)" : "Initial password"}
+                className="flex-1"
+                hint={
+                  sendWelcomeEmail
+                    ? "Leave blank to auto-generate — they set their own via the email."
+                    : "Share this with them securely (e.g. via WhatsApp)."
+                }
+              >
                 <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder={sendWelcomeEmail ? "Auto-generated if blank" : "At least 8 characters"}
                 />
               </Field>
               <Button

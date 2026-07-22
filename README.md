@@ -165,11 +165,17 @@ That's it — the app is live.
 
 ### Passwords
 
+- **Onboarding email:** when HR adds a team member, "Email them a link to set
+  their own password" is on by default — the member gets a set-password email
+  and HR never has to share a password. (Uses the same Supabase email/redirect
+  setup as the reset flow above.) HR can instead set an initial password.
 - **HR reset:** open a team member (HR → Team Members → pick one) → *Reset
   password* → set or generate a new one, then share it securely.
-- **Self-service:** the login page has a *Forgot your password?* link. Users
-  enter their employee ID or email, receive a reset link, and set a new password
-  at `/reset-password`.
+- **Change your own password:** any signed-in user can use the *Account* link in
+  the header (`/account`).
+- **Self-service reset:** the login page has a *Forgot your password?* link.
+  Users enter their employee ID or email, receive a reset link, and set a new
+  password at `/reset-password`.
 
 ### Security model (how authorization is enforced)
 

@@ -39,6 +39,12 @@ export function AppShell({
               <div className="text-xs text-ink-500">{ROLE_LABELS[role]}</div>
             </div>
             <Avatar name={displayName} />
+            <Link
+              href="/account"
+              className="rounded-lg px-2.5 py-2 text-sm font-medium text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+            >
+              Account
+            </Link>
             <form action={signOut}>
               <button
                 type="submit"
