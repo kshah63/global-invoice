@@ -46,7 +46,7 @@ export function InvoiceDocument({
   return (
     <div className="print-area rounded-2xl border border-ink-200 bg-white p-6 shadow-card sm:p-9">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-6 border-b border-ink-100 pb-6">
+      <div className="flex flex-wrap items-start justify-between gap-6 border-b border-ink-100 pb-6 print:pb-3">
         <div>
           <h1 className="font-serif text-3xl font-semibold text-ink-900">Invoice</h1>
           <p className="mt-1 font-mono text-sm text-ink-600 tnum">
@@ -67,7 +67,7 @@ export function InvoiceDocument({
       </div>
 
       {/* Parties + meta */}
-      <div className="grid gap-6 py-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 py-6 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-4 print:gap-4 print:py-4">
         <Party label="From">
           <div className="font-medium text-ink-900">{invoice.display_name}</div>
           {teamMember?.employee_id && <div>ID: {teamMember.employee_id}</div>}
@@ -109,7 +109,16 @@ export function InvoiceDocument({
 
       {/* Line items */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-sm print:min-w-0">
+          <colgroup>
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "27%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "14%" }} />
+          </colgroup>
           <thead>
             <tr className="border-y border-ink-200 text-left text-[0.7rem] uppercase tracking-wider text-ink-500">
               <th className="py-2 pr-3 font-semibold">Centre</th>
@@ -159,7 +168,7 @@ export function InvoiceDocument({
       </div>
 
       {/* Totals */}
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-end print:mt-3">
         <dl className="w-full max-w-xs space-y-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-ink-500">Subtotal</dt>
@@ -203,7 +212,7 @@ export function InvoiceDocument({
       )}
 
       {/* Tax declaration */}
-      <div className="mt-8 rounded-xl bg-ink-50 p-4 text-xs leading-relaxed text-ink-500">
+      <div className="mt-8 rounded-xl bg-ink-50 p-4 text-xs leading-relaxed text-ink-500 print:mt-4 print:p-2.5 print:text-[8.5px]">
         {TAX_DECLARATION}
       </div>
     </div>

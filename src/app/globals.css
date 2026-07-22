@@ -65,22 +65,47 @@
     radial-gradient(at 78% 88%, rgba(23, 127, 133, 0.40) 0px, transparent 55%);
 }
 
-/* Print styles: only the printable invoice shows, chrome hidden */
+/* Print styles: only the printable invoice shows, chrome hidden, and the whole
+   invoice is compacted to fit a single A4 page with no clipped table. */
 @media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  html,
   body {
-    background: #fff;
+    background: #fff !important;
   }
   .no-print {
     display: none !important;
   }
   .print-area {
     box-shadow: none !important;
-    border: none !important;
+    border: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     max-width: none !important;
+    font-size: 10.5px;
+    line-height: 1.35;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  @page {
-    margin: 16mm;
+  /* Table must fit the page — no lateral scroll/clipping */
+  .print-area .overflow-x-auto {
+    overflow: visible !important;
+  }
+  .print-area table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed;
+  }
+  .print-area th,
+  .print-area td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+    word-break: break-word;
+  }
+  .print-area h1 {
+    font-size: 20px !important;
   }
 }

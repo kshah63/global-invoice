@@ -35,8 +35,8 @@ export default async function PrintInvoicePage({
     .maybeSingle();
 
   return (
-    <div className="min-h-screen bg-ink-100 py-8">
-      <div className="mx-auto max-w-3xl px-4">
+    <div className="min-h-screen bg-ink-100 py-8 print:bg-white print:py-0">
+      <div className="mx-auto max-w-3xl px-4 print:max-w-none print:px-0">
         <PrintToolbar />
         <InvoiceDocument
           invoice={invoice as Invoice}
