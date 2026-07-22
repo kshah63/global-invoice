@@ -224,7 +224,7 @@ export function TeamMemberForm({
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>
-                    {c} · {CURRENCY_META[c].label}
+                    {CURRENCY_META[c].label} ({c})
                   </option>
                 ))}
               </Select>
