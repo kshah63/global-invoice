@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { Flash } from "@/components/Flash";
 import { TeamMemberForm } from "@/components/hr/TeamMemberForm";
+import { ResetPasswordCard } from "@/components/hr/ResetPasswordCard";
 import { deleteTeamMember } from "@/actions/team-members";
 import type { TeamMember, TeamMemberRate } from "@/lib/types";
 
@@ -75,6 +76,8 @@ export default async function EditTeamMember({
           })),
         }}
       />
+
+      <ResetPasswordCard teamMemberId={tm.id} />
 
       <Card className="mt-8 border-red-100">
         <CardHeader

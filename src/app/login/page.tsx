@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { ROLE_HOME } from "@/lib/constants";
@@ -46,6 +47,11 @@ export default async function LoginPage({
           <div className="mt-6">
             <LoginForm next={searchParams.next} />
           </div>
+          <p className="mt-4 text-sm text-ink-500">
+            <Link href="/forgot-password" className="text-brand-600 hover:underline">
+              Forgot your password?
+            </Link>
+          </p>
         </div>
       </div>
     </main>

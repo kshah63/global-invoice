@@ -187,3 +187,30 @@ export async function deleteTeamMember(formData: FormData) {
   revalidatePath("/hr/team-members");
   redirect("/hr/team-members");
 }
+
+// --- HR: reset a team member's password -----------------------------------
+
+export async function resetTeamMemberPassword(
+  teamMemberId: string,
+  newPassword: string
+): Promise<{ error?: string }> {
+  await ensureHr();
+  if (!newPassword || newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  const supabase = createClient();
+  const { data: tm } = await supabase
+    .from("team_members")
+    .select("profile_id")
+    .eq("id", teamMemberId)
+    .maybeSingle();
+  if (!tm?.profile_id) {
+    return { error: "This team member has no linked login account." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(tm.profile_id, {
+    password: newPassword,
+  });
+  if (error) return { error: error.message };
+  return {};
+}

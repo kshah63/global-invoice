@@ -154,7 +154,22 @@ Open http://localhost:3000 and sign in with a demo account.
    never be more than a `team_member` — but disabling sign-ups keeps stray
    accounts out entirely.
 
+7. **(For the "forgot password" email flow)** In Supabase → **Authentication →
+   URL Configuration → Redirect URLs**, add `https://<your-domain>/**` (or at
+   least `https://<your-domain>/auth/callback`). Reset emails use Supabase's
+   built-in email service by default (fine for low volume); configure custom
+   SMTP for production volume. HR can always reset a team member's password
+   directly from the team-member edit screen without any email setup.
+
 That's it — the app is live.
+
+### Passwords
+
+- **HR reset:** open a team member (HR → Team Members → pick one) → *Reset
+  password* → set or generate a new one, then share it securely.
+- **Self-service:** the login page has a *Forgot your password?* link. Users
+  enter their employee ID or email, receive a reset link, and set a new password
+  at `/reset-password`.
 
 ### Security model (how authorization is enforced)
 
