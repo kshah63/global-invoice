@@ -19,6 +19,7 @@ export interface Profile {
   full_name: string | null;
   email: string;
   business: Centre | null;
+  login_code: string | null;
   created_at: string;
 }
 

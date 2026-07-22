@@ -83,6 +83,7 @@ async function ensureUser(email, password, metadata) {
       role: metadata.role,
       full_name: metadata.full_name ?? null,
       business: metadata.business ?? null,
+      login_code: metadata.login_code ?? null,
     },
     { onConflict: "id" }
   );
@@ -188,6 +189,7 @@ async function main() {
     role: "department_head",
     full_name: "David Chen",
     business: "MathVision",
+    login_code: "2001",
   });
   const tm1User = await ensureUser(TM.email, TM.password, {
     role: "team_member",

@@ -19,6 +19,7 @@ export function DeptHeadForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [loginCode, setLoginCode] = useState("");
   const [password, setPassword] = useState("");
   const [business, setBusiness] = useState<Centre>("MathVision");
   const [error, setError] = useState<string | null>(null);
@@ -29,20 +30,31 @@ export function DeptHeadForm() {
     e.preventDefault();
     setError(null);
     setOk(null);
+    if (!/^[0-9]{4}$/.test(loginCode.trim())) {
+      setError("Login ID must be a 4-digit code.");
+      return;
+    }
     if (password.length < 8) {
       setError("Set a password of at least 8 characters.");
       return;
     }
     setSaving(true);
-    const res = await createDepartmentHead({ name, email, password, business });
+    const res = await createDepartmentHead({
+      name,
+      email,
+      password,
+      business,
+      loginCode: loginCode.trim(),
+    });
     setSaving(false);
     if (res.error) {
       setError(res.error);
       return;
     }
-    setOk(`${name} added as department head for ${business}.`);
+    setOk(`${name} added as department head for ${business} (login ID ${loginCode.trim()}).`);
     setName("");
     setEmail("");
+    setLoginCode("");
     setPassword("");
     router.refresh();
   }
@@ -55,11 +67,21 @@ export function DeptHeadForm() {
         <Field label="Full name" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
-        <Field label="Email" required hint="Becomes their login.">
+        <Field label="Email" required hint="For password resets.">
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </Field>
+        <Field label="Login ID (4 digits)" required hint="They sign in with this.">
+          <Input
+            value={loginCode}
+            onChange={(e) => setLoginCode(e.target.value)}
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="2001"
             required
           />
         </Field>

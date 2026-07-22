@@ -45,10 +45,35 @@ export async function createDepartmentHead(input: {
   email: string;
   password: string;
   business: Centre;
+  loginCode: string;
 }): Promise<{ error?: string }> {
   await ensureHr();
+  const code = (input.loginCode ?? "").trim();
+  if (!/^[0-9]{4}$/.test(code)) {
+    return { error: "Login ID must be a 4-digit code." };
+  }
+
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.createUser({
+
+  // Keep the 4-digit login space unambiguous across team members + dept heads.
+  const { data: tmHit } = await admin
+    .from("team_members")
+    .select("id")
+    .eq("employee_id", code)
+    .maybeSingle();
+  if (tmHit) {
+    return { error: "That ID is already used by a team member — pick another." };
+  }
+  const { data: profHit } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("login_code", code)
+    .maybeSingle();
+  if (profHit) {
+    return { error: "That ID is already in use — pick another." };
+  }
+
+  const { data: created, error } = await admin.auth.admin.createUser({
     email: input.email,
     password: input.password,
     email_confirm: true,
@@ -59,15 +84,24 @@ export async function createDepartmentHead(input: {
     },
     app_metadata: { role: "department_head" },
   });
-  if (error) {
-    if (/api[\s_-]?key/i.test(error.message)) {
+  if (error || !created?.user) {
+    if (error && /api[\s_-]?key/i.test(error.message)) {
       return {
         error:
           "Supabase rejected the service role key. In Vercel, set SUPABASE_SERVICE_ROLE_KEY to your project's service_role key (Supabase → Project Settings → API keys) with no extra spaces, then redeploy.",
       };
     }
-    return { error: error.message };
+    return { error: error?.message ?? "Could not create the account." };
   }
+
+  const { error: codeErr } = await admin
+    .from("profiles")
+    .update({ login_code: code })
+    .eq("id", created.user.id);
+  if (codeErr) {
+    return { error: `Account created, but assigning the login ID failed: ${codeErr.message}` };
+  }
+
   revalidatePath("/hr/settings");
   return {};
 }

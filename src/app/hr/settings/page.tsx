@@ -91,6 +91,11 @@ export default async function SettingsPage({
                         {h.full_name ?? h.email}
                       </div>
                       <div className="text-xs text-ink-400">{h.email}</div>
+                      {h.login_code && (
+                        <div className="text-xs text-ink-400">
+                          Login ID: {h.login_code}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       {h.business && (

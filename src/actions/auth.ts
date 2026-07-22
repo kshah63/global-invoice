@@ -5,18 +5,35 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Resolve a login identifier (4-digit employee ID or email) to an email. */
+/**
+ * Resolve a login identifier to an email. A 4-digit code is a team member's
+ * employee ID or a department head's login code; anything with "@" is an email.
+ */
 async function resolveEmail(identifier: string): Promise<string | null> {
   const id = identifier.trim();
   if (/^[0-9]{4}$/.test(id)) {
     const admin = createAdminClient();
+
+    // Team member employee ID first, then department head login code.
+    let profileId: string | null = null;
     const { data: tm } = await admin
       .from("team_members")
       .select("profile_id")
       .eq("employee_id", id)
       .maybeSingle();
-    if (!tm?.profile_id) return null;
-    const { data: userRes } = await admin.auth.admin.getUserById(tm.profile_id);
+    profileId = tm?.profile_id ?? null;
+
+    if (!profileId) {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("login_code", id)
+        .maybeSingle();
+      profileId = prof?.id ?? null;
+    }
+
+    if (!profileId) return null;
+    const { data: userRes } = await admin.auth.admin.getUserById(profileId);
     return userRes?.user?.email ?? null;
   }
   return id.includes("@") ? id : null;

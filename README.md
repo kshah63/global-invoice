@@ -88,7 +88,7 @@ cp .env.example .env.local
 
 ### 3. Apply the database schema
 
-Run the migrations in `supabase/migrations/` **in order** (0001 → 0004).
+Run the migrations in `supabase/migrations/` **in order** (0001 → 0005).
 
 **Option A — Supabase SQL Editor (simplest):** open each file and paste/run it
 in the dashboard's SQL editor, in order.
@@ -101,8 +101,8 @@ supabase db push
 ```
 
 The migrations create the schema (`0001`), functions & integrity triggers
-(`0002`), Row-Level Security policies (`0003`), and the atomic invoice-save RPC
-(`0004`).
+(`0002`), Row-Level Security policies (`0003`), the atomic invoice-save RPC
+(`0004`), and the department-head login ID (`0005`).
 
 ### 4. Seed demo data (optional but recommended)
 
@@ -116,14 +116,14 @@ This creates demo logins and realistic data across every invoice status:
 |-----------------|--------------------------|----------------|
 | HR              | `hr@mathvision.demo`     | `Password123!` |
 | Team Member     | `teacher@mathvision.demo`| `Password123!` |
-| Department Head | `head@mathvision.demo`   | `Password123!` |
+| Department Head | `head@mathvision.demo` (or ID `2001`) | `Password123!` |
 
 (Change these via `SEED_*` variables in `.env.local`. Two extra teachers,
 `teacher2@` and `teacher3@`, are also created.)
 
-**Team members can sign in with their 4-digit employee ID** instead of an
-email (e.g. `1001` for the seeded teacher, or `1002` / `1003`). HR and
-department heads sign in with their email. The login field accepts either.
+**Team members and department heads sign in with their 4-digit ID** (e.g. `1001`
+for the seeded teacher, or `2001` for the seeded department head). HR signs in
+with their email. The login field accepts either an ID or an email.
 
 ### 5. Run
 
