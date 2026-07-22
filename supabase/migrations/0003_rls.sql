@@ -67,6 +67,21 @@ as $$
   );
 $$;
 
+-- Minimal team-member directory for department heads (and HR): only the
+-- non-sensitive columns they need to pick a teacher and label their checks.
+create or replace function public.list_team_members_for_dept()
+returns table (id uuid, name text, employee_id text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select tm.id, tm.name, tm.employee_id
+  from public.team_members tm
+  where tm.active = true and (public.is_dept_head() or public.is_hr())
+  order by tm.name;
+$$;
+
 -- --- column/transition guards ---------------------------------------
 
 -- Team members may edit ONLY their invoice display name + ship-to address.
@@ -203,11 +218,14 @@ create policy company_update on public.company_settings
 -- --- team_members ----------------------------------------------------
 alter table public.team_members enable row level security;
 
+-- Department heads deliberately do NOT get broad row access here (that would
+-- expose payment details, salary and PII for every contractor, since RLS is
+-- column-blind). They read the minimal id/name/employee_id list they need via
+-- public.list_team_members_for_dept() below.
 drop policy if exists tm_select on public.team_members;
 create policy tm_select on public.team_members
   for select using (
     public.is_hr()
-    or public.is_dept_head()
     or profile_id = auth.uid()
   );
 

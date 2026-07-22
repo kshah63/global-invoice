@@ -21,14 +21,25 @@ export async function GET(req: NextRequest) {
   const month = Number(url.searchParams.get("month")) || now.getMonth() + 1;
 
   const supabase = createClient();
-  const { data } = await supabase
-    .from("invoices")
-    .select("*, team_members(name, employee_id, payment_details)")
-    .eq("period_year", year)
-    .eq("period_month", month)
-    .order("status");
+  // Drive from all active team members so the payroll report covers everyone,
+  // not just those who already have an invoice for the period.
+  const [{ data: memberRows }, { data: invRows }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("id, name, employee_id, currency, payment_details")
+      .eq("active", true)
+      .order("name"),
+    supabase
+      .from("invoices")
+      .select("*")
+      .eq("period_year", year)
+      .eq("period_month", month),
+  ]);
 
-  const rows = (data as any[]) ?? [];
+  const members = (memberRows as any[]) ?? [];
+  const invByMember = new Map<string, any>();
+  ((invRows as any[]) ?? []).forEach((i) => invByMember.set(i.team_member_id, i));
+
   const header = [
     "Employee ID",
     "Name",
@@ -41,18 +52,21 @@ export async function GET(req: NextRequest) {
     "Total",
     "Payment Details",
   ];
-  const body = rows.map((r) => [
-    r.team_members?.employee_id ?? "",
-    r.team_members?.name ?? r.display_name,
-    r.invoice_number,
-    r.status,
-    r.currency,
-    r.subtotal,
-    r.tax_rate,
-    r.tax_amount,
-    r.total,
-    r.team_members?.payment_details ?? "",
-  ]);
+  const body = members.map((m) => {
+    const inv = invByMember.get(m.id);
+    return [
+      m.employee_id,
+      m.name,
+      inv?.invoice_number ?? "",
+      inv?.status ?? "not_started",
+      inv?.currency ?? m.currency,
+      inv?.subtotal ?? "",
+      inv?.tax_rate ?? "",
+      inv?.tax_amount ?? "",
+      inv?.total ?? "",
+      m.payment_details ?? "",
+    ];
+  });
 
   const csv = [header, ...body]
     .map((row) => row.map(csvCell).join(","))

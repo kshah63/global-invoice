@@ -7,12 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { formatCurrency } from "@/lib/format";
-import { periodLabel, type Currency } from "@/lib/constants";
-import type { Invoice } from "@/lib/types";
+import { periodLabel, type Currency, type DashboardStatus } from "@/lib/constants";
+import type { Invoice, TeamMember } from "@/lib/types";
 
 export const metadata = { title: "Reports" };
-
-type Row = Invoice & { team_members: { name: string; employee_id: string } | null };
 
 const FINALISED = ["approved", "locked", "paid"];
 
@@ -27,27 +25,40 @@ export default async function ReportsPage({
   const month = Number(searchParams.month) || now.getMonth() + 1;
 
   const supabase = createClient();
-  const { data } = await supabase
-    .from("invoices")
-    .select("*, team_members(name, employee_id)")
-    .eq("period_year", year)
-    .eq("period_month", month)
-    .order("status");
-  const rows = (data as Row[]) ?? [];
+  const [{ data: memberRows }, { data: invRows }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("id, name, employee_id, currency")
+      .eq("active", true)
+      .order("name"),
+    supabase
+      .from("invoices")
+      .select("*")
+      .eq("period_year", year)
+      .eq("period_month", month),
+  ]);
+
+  const members =
+    (memberRows as Pick<TeamMember, "id" | "name" | "employee_id" | "currency">[]) ??
+    [];
+  const invByMember = new Map<string, Invoice>();
+  (invRows as Invoice[] | null)?.forEach((i) => invByMember.set(i.team_member_id, i));
+
+  const rows = members.map((m) => ({ member: m, invoice: invByMember.get(m.id) ?? null }));
 
   // Per-currency totals for finalised invoices (what needs to be paid)
   const totals = new Map<Currency, number>();
-  rows
-    .filter((r) => FINALISED.includes(r.status))
-    .forEach((r) =>
-      totals.set(r.currency, (totals.get(r.currency) ?? 0) + Number(r.total))
-    );
+  rows.forEach(({ invoice }) => {
+    if (invoice && FINALISED.includes(invoice.status)) {
+      totals.set(invoice.currency, (totals.get(invoice.currency) ?? 0) + Number(invoice.total));
+    }
+  });
 
   return (
     <>
       <PageHeader
         title="Payroll Report"
-        description={`Amounts payable for ${periodLabel(year, month)}.`}
+        description={`All active team members for ${periodLabel(year, month)}.`}
         action={
           <Button href={`/hr/reports/export?year=${year}&month=${month}`}>
             Export CSV
@@ -76,13 +87,13 @@ export default async function ReportsPage({
 
       <Card>
         <CardHeader
-          title="Invoices"
+          title="Team members"
           description="Finalised = approved, locked or paid. Only these are counted in the payable totals."
         />
         <CardBody className="p-0">
           {rows.length === 0 ? (
             <div className="p-5">
-              <EmptyState title="No invoices for this period" />
+              <EmptyState title="No active team members" />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -98,28 +109,31 @@ export default async function ReportsPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
-                  {rows.map((inv) => (
-                    <tr key={inv.id}>
-                      <td className="px-5 py-3 font-medium text-ink-900">
-                        {inv.team_members?.name ?? inv.display_name}
-                      </td>
-                      <td className="px-5 py-3 font-mono text-xs text-ink-500 tnum">
-                        {inv.team_members?.employee_id}
-                      </td>
-                      <td className="px-5 py-3">
-                        <StatusPill status={inv.status} />
-                      </td>
-                      <td className="px-5 py-3 text-right tnum">
-                        {formatCurrency(inv.subtotal, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3 text-right tnum">
-                        {formatCurrency(inv.tax_amount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3 text-right font-medium tnum">
-                        {formatCurrency(inv.total, inv.currency)}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map(({ member, invoice }) => {
+                    const status: DashboardStatus = invoice ? invoice.status : "not_started";
+                    return (
+                      <tr key={member.id}>
+                        <td className="px-5 py-3 font-medium text-ink-900">
+                          {member.name}
+                        </td>
+                        <td className="px-5 py-3 font-mono text-xs text-ink-500 tnum">
+                          {member.employee_id}
+                        </td>
+                        <td className="px-5 py-3">
+                          <StatusPill status={status} />
+                        </td>
+                        <td className="px-5 py-3 text-right tnum">
+                          {invoice ? formatCurrency(invoice.subtotal, invoice.currency) : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right tnum">
+                          {invoice ? formatCurrency(invoice.tax_amount, invoice.currency) : "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right font-medium tnum">
+                          {invoice ? formatCurrency(invoice.total, invoice.currency) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

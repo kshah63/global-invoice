@@ -41,9 +41,23 @@ const DH = {
 const pad2 = (n) => String(n).padStart(2, "0");
 const invNo = (emp, y, m) => `INV-${emp}-${y}-${pad2(m)}`;
 
+async function listAllUsers() {
+  const all = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const users = data?.users ?? [];
+    all.push(...users);
+    if (users.length < 200) break;
+    page++;
+  }
+  return all;
+}
+
 async function ensureUser(email, password, metadata) {
-  const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  let user = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+  const users = await listAllUsers();
+  let user = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (user) {
     await admin.auth.admin.updateUserById(user.id, {
       password,
@@ -346,7 +360,9 @@ async function main() {
     ]
   );
 
-  // Broadcast message
+  // Broadcast message (idempotent: clear any prior seed message first)
+  const seedSubject = "Invoicing is open for July 2026";
+  await admin.from("messages").delete().eq("subject", seedSubject);
   await admin.from("messages").insert({
     sender_profile_id: hr.id,
     sender_name: "Priya Nair",

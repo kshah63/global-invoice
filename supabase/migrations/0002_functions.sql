@@ -3,8 +3,13 @@
 -- =====================================================================
 
 -- --- New auth user -> profile row -----------------------------------
--- Role/full_name/business are taken from the user's metadata, which is set
--- when HR (or the seed script) creates the account via the admin API.
+-- IMPORTANT: the role is taken from raw_app_meta_data (app_metadata), which
+-- ONLY the service role can set (via the admin createUser API used by HR and
+-- the seed script). It is NOT taken from raw_user_meta_data, which is
+-- client-controllable at signup and would otherwise allow anyone to
+-- self-register as 'hr'. Any account without an app_metadata role defaults to
+-- the least-privileged 'team_member'. full_name/business are non-privileged
+-- and may come from user_metadata.
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -17,7 +22,7 @@ begin
   values (
     new.id,
     new.email,
-    coalesce((new.raw_user_meta_data ->> 'role')::public.user_role, 'team_member'),
+    coalesce((new.raw_app_meta_data ->> 'role')::public.user_role, 'team_member'),
     new.raw_user_meta_data ->> 'full_name',
     case
       when new.raw_user_meta_data ? 'business'
@@ -152,3 +157,35 @@ drop trigger if exists invoices_compute_amounts on public.invoices;
 create trigger invoices_compute_amounts
   before insert or update on public.invoices
   for each row execute function public.compute_invoice_amounts();
+
+-- --- Status timestamps are derived from status ----------------------
+-- Set when a status is first entered; cleared when the invoice moves back
+-- below that status. This makes the timestamps authoritative (a client can
+-- never set paid_at) and prevents a reverted invoice from showing a stale
+-- "Paid"/"Locked" date.
+
+create or replace function public.set_invoice_status_timestamps()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.submitted_at := case
+    when new.status in ('submitted', 'approved', 'locked', 'paid')
+      then coalesce(new.submitted_at, now()) else null end;
+  new.approved_at := case
+    when new.status in ('approved', 'locked', 'paid')
+      then coalesce(new.approved_at, now()) else null end;
+  new.locked_at := case
+    when new.status in ('locked', 'paid')
+      then coalesce(new.locked_at, now()) else null end;
+  new.paid_at := case
+    when new.status = 'paid'
+      then coalesce(new.paid_at, now()) else null end;
+  return new;
+end;
+$$;
+
+drop trigger if exists invoices_status_timestamps on public.invoices;
+create trigger invoices_status_timestamps
+  before insert or update on public.invoices
+  for each row execute function public.set_invoice_status_timestamps();

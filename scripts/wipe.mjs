@@ -56,10 +56,15 @@ async function main() {
   await admin.from("messages").delete().neq("id", ALL);
   await admin.from("invoice_periods").delete().neq("id", ALL);
 
-  // Remove all auth users (their profiles cascade away).
-  const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  for (const u of list?.users ?? []) {
-    await admin.auth.admin.deleteUser(u.id);
+  // Remove all auth users (their profiles cascade away). Delete in batches by
+  // repeatedly draining the first page until no users remain.
+  for (;;) {
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const users = data?.users ?? [];
+    if (users.length === 0) break;
+    for (const u of users) {
+      await admin.auth.admin.deleteUser(u.id);
+    }
   }
 
   // Reset company settings to default.

@@ -152,9 +152,10 @@ export async function submitInvoiceById(
     return { error: "Add at least one line item before submitting." };
   }
 
+  // submitted_at is set by the DB status-timestamp trigger.
   const { error } = await supabase
     .from("invoices")
-    .update({ status: "submitted", submitted_at: new Date().toISOString() })
+    .update({ status: "submitted" })
     .eq("id", id);
 
   if (error) return { error: error.message };
@@ -200,15 +201,22 @@ export async function hrInvoiceTransition(formData: FormData) {
     redirect(`/hr/invoices/${id}?error=${encodeURIComponent("That action is not available.")}`);
   }
 
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = { status: def.to };
-  if (def.to === "approved") patch.approved_at = now;
-  if (def.to === "locked") patch.locked_at = now;
-  if (def.to === "paid") patch.paid_at = now;
-
-  const { error } = await supabase.from("invoices").update(patch).eq("id", id);
+  // Atomic, guarded transition: only apply if the status still matches what we
+  // validated against (avoids a check-then-act race). Timestamps are set by the
+  // DB status-timestamp trigger.
+  const { data: updated, error } = await supabase
+    .from("invoices")
+    .update({ status: def.to })
+    .eq("id", id)
+    .eq("status", inv.status)
+    .select("id");
   if (error) {
     redirect(`/hr/invoices/${id}?error=${encodeURIComponent(error.message)}`);
+  }
+  if (!updated || updated.length === 0) {
+    redirect(
+      `/hr/invoices/${id}?error=${encodeURIComponent("This invoice changed since you loaded it — please reload and try again.")}`
+    );
   }
 
   revalidatePath(`/hr/invoices/${id}`);

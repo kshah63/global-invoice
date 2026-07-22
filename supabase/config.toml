@@ -1,0 +1,14 @@
+# Supabase CLI configuration.
+# Full reference: https://supabase.com/docs/guides/local-development/cli/config
+project_id = "global-online-invoicing"
+
+[auth]
+# There is no public sign-up in this app — HR creates every account via the
+# admin API, and a user's role is read only from app_metadata (which only the
+# service role can set). Keep self-service sign-ups disabled so no stray
+# accounts can be created directly against the public Auth API.
+enable_signup = false
+
+# Accounts are created pre-confirmed by the admin API, so email confirmation
+# flows are not used.
+enable_confirmations = false

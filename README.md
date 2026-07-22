@@ -144,8 +144,26 @@ Open http://localhost:3000 and sign in with a demo account.
 5. In Supabase → **Authentication → URL Configuration**, set the **Site URL** to
    your Vercel domain. No email provider setup is needed: accounts are created by
    HR with `email_confirm`, and login is email + password.
+6. In Supabase → **Authentication → Sign In / Providers**, turn **off** public
+   sign-ups (also captured in `supabase/config.toml`). Roles are assigned only
+   through the admin API via `app_metadata`, so a self-registered user could
+   never be more than a `team_member` — but disabling sign-ups keeps stray
+   accounts out entirely.
 
 That's it — the app is live.
+
+### Security model (how authorization is enforced)
+
+- A user's **role** lives in `app_metadata`, which only the service role can set
+  (via the admin API used by HR actions and the seed script). The new-user
+  trigger reads the role from there — never from the client-settable
+  `user_metadata` — so no one can self-assign `hr`.
+- **Row-Level Security** is enabled on every table and is the real boundary: the
+  UI role checks are convenience only. Team members can only see/edit their own
+  data; a locked/paid invoice can't be edited; line-item rate amounts are
+  resolved server-side from the member's configured rates (a client can't inflate
+  a total); department heads can only read a minimal name/ID directory, not
+  payment details or salaries.
 
 ---
 

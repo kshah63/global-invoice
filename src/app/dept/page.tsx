@@ -13,8 +13,6 @@ import type { DeptHeadCheck } from "@/lib/types";
 
 export const metadata = { title: "Overview" };
 
-type Row = DeptHeadCheck & { team_members: { name: string } | null };
-
 export default async function DeptOverview({
   searchParams,
 }: {
@@ -22,12 +20,19 @@ export default async function DeptOverview({
 }) {
   const { profile } = await requireRole("department_head");
   const supabase = createClient();
-  const { data } = await supabase
-    .from("dept_head_checks")
-    .select("*, team_members(name)")
-    .order("created_at", { ascending: false })
-    .limit(8);
-  const checks = (data as Row[]) ?? [];
+  const [{ data: checkData }, { data: memberData }] = await Promise.all([
+    supabase
+      .from("dept_head_checks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(8),
+    supabase.rpc("list_team_members_for_dept"),
+  ]);
+  const checks = (checkData as DeptHeadCheck[]) ?? [];
+  const nameById = new Map<string, string>();
+  ((memberData as { id: string; name: string }[]) ?? []).forEach((m) =>
+    nameById.set(m.id, m.name)
+  );
 
   return (
     <>
@@ -74,7 +79,7 @@ export default async function DeptOverview({
                   >
                     <div>
                       <div className="font-medium text-ink-900">
-                        {c.team_members?.name ?? "Team member"}
+                        {nameById.get(c.team_member_id) ?? "Team member"}
                       </div>
                       <div className="text-xs text-ink-400">
                         {periodLabel(c.period_year, c.period_month)} · {c.business}

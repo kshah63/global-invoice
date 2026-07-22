@@ -12,11 +12,7 @@ export const metadata = { title: "New Cross-check" };
 export default async function NewCheck() {
   const { profile } = await requireRole("department_head");
   const supabase = createClient();
-  const { data } = await supabase
-    .from("team_members")
-    .select("id, name, employee_id")
-    .eq("active", true)
-    .order("name");
+  const { data } = await supabase.rpc("list_team_members_for_dept");
   const members = (data as Pick<TeamMember, "id" | "name" | "employee_id">[]) ?? [];
 
   return (

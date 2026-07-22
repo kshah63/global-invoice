@@ -34,11 +34,7 @@ export default async function EditCheck({
       .select("*")
       .eq("check_id", check.id)
       .order("sort_order"),
-    supabase
-      .from("team_members")
-      .select("id, name, employee_id")
-      .eq("active", true)
-      .order("name"),
+    supabase.rpc("list_team_members_for_dept"),
   ]);
 
   const items = (itemRows as DeptHeadCheckItem[]) ?? [];

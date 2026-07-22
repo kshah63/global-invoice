@@ -178,12 +178,15 @@ export function InvoiceEditor({
   async function doSave(): Promise<boolean> {
     setError(null);
     setNotice(null);
+    // Clamp to [0, 100] and round to the DB's numeric(6,3) precision so the
+    // preview total matches what the server stores.
+    const cleanTax = Math.min(100, Math.max(0, Math.round((Number(taxRate) || 0) * 1000) / 1000));
     const res = await saveInvoice({
       invoiceId: invoice.id,
       displayName: displayName.trim() || teamMember.name,
       shipTo: shipTo.trim() || null,
       notes: notes.trim() || null,
-      taxRate: Number(taxRate) || 0,
+      taxRate: cleanTax,
       items: buildItems(),
     });
     if (res.error) {
@@ -450,7 +453,8 @@ export function InvoiceEditor({
                   id="tax_rate"
                   type="number"
                   min="0"
-                  step="0.1"
+                  max="100"
+                  step="0.001"
                   className="w-24 text-right"
                   value={taxRate}
                   onChange={(e) => setTaxRate(e.target.value)}
