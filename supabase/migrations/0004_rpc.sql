@@ -31,6 +31,14 @@ begin
 
   select fixed_salary into v_fixed from public.team_members where id = v_team;
 
+  -- A fixed salary is a single monthly amount — allow at most one such line.
+  if (
+    select count(*) from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) e
+    where e ->> 'task' = 'fixed_salary'
+  ) > 1 then
+    raise exception 'An invoice can only have one fixed salary line';
+  end if;
+
   -- Editing an approved invoice sends it back to "submitted" for re-approval.
   update public.invoices set
     display_name    = coalesce(p_display_name, display_name),

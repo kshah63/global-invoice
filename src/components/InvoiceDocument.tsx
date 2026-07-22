@@ -142,7 +142,7 @@ export function InvoiceDocument({
               const fixed = it.rate_unit === "fixed";
               return (
                 <tr key={it.id} className="align-top">
-                  <td className="py-2.5 pr-3">{it.centre}</td>
+                  <td className="py-2.5 pr-3">{fixed ? "—" : it.centre}</td>
                   <td className="py-2.5 pr-3">{TASK_LABELS[it.task]}</td>
                   <td className="py-2.5 pr-3 text-ink-600">{it.note || "—"}</td>
                   <td className="py-2.5 pr-3 text-right tnum">

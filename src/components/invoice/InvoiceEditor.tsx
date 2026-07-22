@@ -97,8 +97,22 @@ export function InvoiceEditor({
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
+  const memberHasFixed = teamMember.fixed_salary != null;
+  function fixedUsedElsewhere(key: string) {
+    return rows.some((r) => r.key !== key && isFixedSalaryTask(r.task));
+  }
+
   function changeTask(key: string, task: TaskType) {
     if (isFixedSalaryTask(task)) {
+      if (!memberHasFixed) {
+        setError("This team member has no fixed salary configured.");
+        return;
+      }
+      if (fixedUsedElsewhere(key)) {
+        setError("An invoice can only have one fixed salary line.");
+        return;
+      }
+      setError(null);
       patchRow(key, {
         task,
         rate_unit: "fixed",
@@ -109,7 +123,7 @@ export function InvoiceEditor({
         hours: "0",
       });
     } else {
-      patchRow(key, (prevReset(task)));
+      patchRow(key, prevReset(task));
     }
   }
 
@@ -313,9 +327,13 @@ export function InvoiceEditor({
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Centre">
+                  <Field
+                    label="Centre"
+                    hint={fixed ? "N/A for fixed salary" : undefined}
+                  >
                     <Select
                       value={row.centre}
+                      disabled={fixed}
                       onChange={(e) =>
                         patchRow(row.key, { centre: e.target.value as Centre })
                       }
@@ -334,11 +352,25 @@ export function InvoiceEditor({
                         changeTask(row.key, e.target.value as TaskType)
                       }
                     >
-                      {TASKS.map((t) => (
-                        <option key={t} value={t}>
-                          {TASK_LABELS[t]}
-                        </option>
-                      ))}
+                      {TASKS.map((t) => {
+                        // Only offer "Fixed Salary" when the member has one and it
+                        // isn't already used on another line.
+                        if (
+                          t === "fixed_salary" &&
+                          !(
+                            memberHasFixed &&
+                            (row.task === "fixed_salary" ||
+                              !fixedUsedElsewhere(row.key))
+                          )
+                        ) {
+                          return null;
+                        }
+                        return (
+                          <option key={t} value={t}>
+                            {TASK_LABELS[t]}
+                          </option>
+                        );
+                      })}
                     </Select>
                   </Field>
                 </div>
