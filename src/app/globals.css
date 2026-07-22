@@ -65,12 +65,13 @@
     radial-gradient(at 78% 88%, rgba(23, 127, 133, 0.40) 0px, transparent 55%);
 }
 
-/* Print styles: only the printable invoice shows, chrome hidden, and the whole
-   invoice is compacted to fit a single A4 page with no clipped table. */
+/* Print styles: hide the app chrome, keep the invoice at a clean, readable size,
+   and make the line-items table fit the page width so it never scrolls or gets
+   cut off (a long invoice simply flows onto a second page). */
 @media print {
   @page {
     size: A4;
-    margin: 12mm;
+    margin: 14mm;
   }
   html,
   body {
@@ -85,12 +86,10 @@
     margin: 0 !important;
     padding: 0 !important;
     max-width: none !important;
-    font-size: 10.5px;
-    line-height: 1.35;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Table must fit the page — no lateral scroll/clipping */
+  /* Table fits the page width — never scrolls or clips horizontally */
   .print-area .overflow-x-auto {
     overflow: visible !important;
   }
@@ -101,11 +100,6 @@
   }
   .print-area th,
   .print-area td {
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
-    word-break: break-word;
-  }
-  .print-area h1 {
-    font-size: 20px !important;
+    overflow-wrap: break-word;
   }
 }
