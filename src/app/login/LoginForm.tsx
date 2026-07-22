@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { signInWithIdentifier } from "@/actions/auth";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 
 export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,10 +18,9 @@ export function LoginForm({ next }: { next?: string }) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
+    const res = await signInWithIdentifier(identifier, password);
+    if (res.error) {
+      setError(res.error);
       setLoading(false);
       return;
     }
@@ -34,15 +33,19 @@ export function LoginForm({ next }: { next?: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {error && <Alert tone="danger">{error}</Alert>}
-      <Field label="Email" htmlFor="email">
+      <Field
+        label="Employee ID or email"
+        htmlFor="identifier"
+        hint="Team members: use your 4-digit employee ID. HR & department heads: use your email."
+      >
         <Input
-          id="email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          type="text"
+          autoComplete="username"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="1042  or  you@example.com"
         />
       </Field>
       <Field label="Password" htmlFor="password">

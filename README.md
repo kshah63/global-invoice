@@ -121,6 +121,10 @@ This creates demo logins and realistic data across every invoice status:
 (Change these via `SEED_*` variables in `.env.local`. Two extra teachers,
 `teacher2@` and `teacher3@`, are also created.)
 
+**Team members can sign in with their 4-digit employee ID** instead of an
+email (e.g. `1001` for the seeded teacher, or `1002` / `1003`). HR and
+department heads sign in with their email. The login field accepts either.
+
 ### 5. Run
 
 ```bash
