@@ -59,7 +59,15 @@ export async function createDepartmentHead(input: {
     },
     app_metadata: { role: "department_head" },
   });
-  if (error) return { error: error.message };
+  if (error) {
+    if (/api[\s_-]?key/i.test(error.message)) {
+      return {
+        error:
+          "Supabase rejected the service role key. In Vercel, set SUPABASE_SERVICE_ROLE_KEY to your project's service_role key (Supabase → Project Settings → API keys) with no extra spaces, then redeploy.",
+      };
+    }
+    return { error: error.message };
+  }
   revalidatePath("/hr/settings");
   return {};
 }

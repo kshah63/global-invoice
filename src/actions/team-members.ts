@@ -81,7 +81,14 @@ export async function createTeamMember(
     app_metadata: { role: "team_member" },
   });
   if (cErr || !created?.user) {
-    return { error: cErr?.message ?? "Could not create the login account." };
+    const m = cErr?.message ?? "";
+    if (/api[\s_-]?key/i.test(m)) {
+      return {
+        error:
+          "Supabase rejected the service role key. In Vercel, set SUPABASE_SERVICE_ROLE_KEY to your project's service_role key (Supabase → Project Settings → API keys) with no extra spaces, then redeploy.",
+      };
+    }
+    return { error: m || "Could not create the login account." };
   }
   const profileId = created.user.id;
 
