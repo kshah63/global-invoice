@@ -19,6 +19,19 @@ export const ROLE_HOME: Record<Role, string> = {
   department_head: "/dept",
 };
 
+// --- Subjects -------------------------------------------------------------
+
+export const SUBJECT_OPTIONS = [
+  "1 - 8 Maths",
+  "9 - 10 Maths",
+  "11 - 12 Maths",
+  "9 - 10 Science",
+  "11 - 12 Science",
+  "Economics",
+  "Business",
+  "Computer Science",
+] as const;
+
 // --- Currencies -----------------------------------------------------------
 
 export const CURRENCIES = ["SGD", "INR", "MYR"] as const;

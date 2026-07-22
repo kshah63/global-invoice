@@ -217,7 +217,7 @@ async function main() {
       payment_details: "PayNow: +65 8123 4567",
       currency: "SGD",
       ship_to_address: "88 Bukit Timah Road\nSingapore 229838",
-      subjects: ["Algebra", "Calculus"],
+      subjects: ["9 - 10 Maths", "11 - 12 Maths"],
     },
     [
       { descriptor: "Weekday teaching", unit: "per_hour", amount: 45, task: "teaching" },
@@ -239,7 +239,7 @@ async function main() {
       payment_details: "Bank: HDFC ****1234",
       currency: "INR",
       ship_to_address: "12 MG Road\nBengaluru 560001",
-      subjects: ["Geometry"],
+      subjects: ["1 - 8 Maths"],
     },
     [
       { descriptor: "Teaching (per session)", unit: "per_session", amount: 800, task: "teaching" },
@@ -261,7 +261,7 @@ async function main() {
       currency: "MYR",
       ship_to_address: "5 Jalan Ampang\n50450 Kuala Lumpur",
       fixed_salary: 3000,
-      subjects: ["Statistics"],
+      subjects: ["9 - 10 Science"],
     },
     [{ descriptor: "Teaching", unit: "per_hour", amount: 90, task: "teaching" }]
   );

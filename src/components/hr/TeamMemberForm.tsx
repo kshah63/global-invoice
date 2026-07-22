@@ -6,6 +6,7 @@ import {
   CURRENCY_META,
   RATE_UNITS,
   RATE_UNIT_LABELS,
+  SUBJECT_OPTIONS,
   TASKS,
   TASK_LABELS,
   type Currency,
@@ -21,6 +22,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
+import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Alert } from "@/components/ui/Feedback";
 
 interface RateRow extends RateInput {
@@ -65,7 +67,7 @@ export function TeamMemberForm({
   const [fixedSalary, setFixedSalary] = useState(
     initial?.fixed_salary != null ? String(initial.fixed_salary) : ""
   );
-  const [subjects, setSubjects] = useState((initial?.subjects ?? []).join(", "));
+  const [subjects, setSubjects] = useState<string[]>(initial?.subjects ?? []);
   const [rates, setRates] = useState<RateRow[]>(
     (initial?.rates ?? []).map((r) => ({ ...r, key: key() }))
   );
@@ -106,10 +108,7 @@ export function TeamMemberForm({
       payment_details: paymentDetails.trim() || null,
       currency,
       fixed_salary: fixedSalary.trim() ? Number(fixedSalary) : null,
-      subjects: subjects
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      subjects,
       rates: rates.map((r, i) => ({
         descriptor: r.descriptor,
         unit: r.unit,
@@ -193,11 +192,12 @@ export function TeamMemberForm({
           <Field label="Head of department">
             <Input value={hod} onChange={(e) => setHod(e.target.value)} />
           </Field>
-          <Field label="Subjects" hint="Separate multiple subjects with commas.">
-            <Input
+          <Field label="Subjects" hint="Select all that apply.">
+            <MultiSelect
+              options={[...SUBJECT_OPTIONS]}
               value={subjects}
-              onChange={(e) => setSubjects(e.target.value)}
-              placeholder="Algebra, Calculus"
+              onChange={setSubjects}
+              placeholder="Select subjects"
             />
           </Field>
           <Field label="Payment details">
@@ -259,6 +259,24 @@ export function TeamMemberForm({
                   key={r.key}
                   className="grid gap-3 rounded-xl border border-ink-200 bg-ink-50/40 p-3 sm:grid-cols-12"
                 >
+                  <div className="sm:col-span-2">
+                    <Label>Task</Label>
+                    <Select
+                      value={r.task ?? ""}
+                      onChange={(e) =>
+                        patchRate(r.key, {
+                          task: (e.target.value || null) as TaskType | null,
+                        })
+                      }
+                    >
+                      <option value="">Any</option>
+                      {TASKS.filter((t) => t !== "fixed_salary").map((t) => (
+                        <option key={t} value={t}>
+                          {TASK_LABELS[t]}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                   <div className="sm:col-span-4">
                     <Label>Descriptor</Label>
                     <Input
@@ -293,24 +311,6 @@ export function TeamMemberForm({
                         patchRate(r.key, { amount: Number(e.target.value) })
                       }
                     />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>Task</Label>
-                    <Select
-                      value={r.task ?? ""}
-                      onChange={(e) =>
-                        patchRate(r.key, {
-                          task: (e.target.value || null) as TaskType | null,
-                        })
-                      }
-                    >
-                      <option value="">Any</option>
-                      {TASKS.filter((t) => t !== "fixed_salary").map((t) => (
-                        <option key={t} value={t}>
-                          {TASK_LABELS[t]}
-                        </option>
-                      ))}
-                    </Select>
                   </div>
                   <div className="flex items-end sm:col-span-1">
                     <button
