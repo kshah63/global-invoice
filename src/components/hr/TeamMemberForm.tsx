@@ -1,0 +1,365 @@
+"use client";
+
+import { useState } from "react";
+import {
+  CURRENCIES,
+  CURRENCY_META,
+  RATE_UNITS,
+  RATE_UNIT_LABELS,
+  TASKS,
+  TASK_LABELS,
+  type Currency,
+  type RateUnit,
+  type TaskType,
+} from "@/lib/constants";
+import {
+  createTeamMember,
+  updateTeamMember,
+  type RateInput,
+  type TeamMemberInput,
+} from "@/actions/team-members";
+import { Button } from "@/components/ui/Button";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
+import { Alert } from "@/components/ui/Feedback";
+
+interface RateRow extends RateInput {
+  key: string;
+}
+
+let seq = 0;
+const key = () => `r-${seq++}-${Math.round(Math.random() * 1e6)}`;
+
+function randomPassword() {
+  const chars =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  let out = "";
+  for (let i = 0; i < 12; i++)
+    out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+export function TeamMemberForm({
+  mode,
+  id,
+  initial,
+}: {
+  mode: "create" | "edit";
+  id?: string;
+  initial?: Partial<TeamMemberInput>;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [employeeId, setEmployeeId] = useState(initial?.employee_id ?? "");
+  const [password, setPassword] = useState("");
+  const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_number ?? "");
+  const [dateJoined, setDateJoined] = useState(initial?.date_joined ?? "");
+  const [nationality, setNationality] = useState(initial?.nationality ?? "");
+  const [workLocation, setWorkLocation] = useState(initial?.work_location ?? "");
+  const [hod, setHod] = useState(initial?.head_of_department ?? "");
+  const [paymentDetails, setPaymentDetails] = useState(
+    initial?.payment_details ?? ""
+  );
+  const [currency, setCurrency] = useState<Currency>(initial?.currency ?? "SGD");
+  const [fixedSalary, setFixedSalary] = useState(
+    initial?.fixed_salary != null ? String(initial.fixed_salary) : ""
+  );
+  const [subjects, setSubjects] = useState((initial?.subjects ?? []).join(", "));
+  const [rates, setRates] = useState<RateRow[]>(
+    (initial?.rates ?? []).map((r) => ({ ...r, key: key() }))
+  );
+
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function addRate() {
+    setRates((prev) => [
+      ...prev,
+      {
+        key: key(),
+        descriptor: "",
+        unit: "per_session",
+        amount: 0,
+        task: null,
+        sort_order: prev.length,
+      },
+    ]);
+  }
+  function patchRate(k: string, patch: Partial<RateRow>) {
+    setRates((prev) => prev.map((r) => (r.key === k ? { ...r, ...patch } : r)));
+  }
+  function removeRate(k: string) {
+    setRates((prev) => prev.filter((r) => r.key !== k));
+  }
+
+  function buildInput(): TeamMemberInput {
+    return {
+      name: name.trim(),
+      email: email.trim(),
+      employee_id: employeeId.trim(),
+      whatsapp_number: whatsapp.trim() || null,
+      date_joined: dateJoined || null,
+      nationality: nationality.trim() || null,
+      work_location: workLocation.trim() || null,
+      head_of_department: hod.trim() || null,
+      payment_details: paymentDetails.trim() || null,
+      currency,
+      fixed_salary: fixedSalary.trim() ? Number(fixedSalary) : null,
+      subjects: subjects
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      rates: rates.map((r, i) => ({
+        descriptor: r.descriptor,
+        unit: r.unit,
+        amount: Number(r.amount) || 0,
+        task: r.task,
+        sort_order: i,
+      })),
+    };
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!/^[0-9]{4}$/.test(employeeId.trim())) {
+      setError("Employee ID must be a 4-digit code.");
+      return;
+    }
+    if (mode === "create" && password.length < 8) {
+      setError("Set an initial password of at least 8 characters.");
+      return;
+    }
+    setSaving(true);
+    const input = buildInput();
+    const res =
+      mode === "create"
+        ? await createTeamMember({ ...input, password })
+        : await updateTeamMember(id!, input);
+    // On success the action redirects; we only get here on error.
+    if (res?.error) {
+      setError(res.error);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6">
+      {error && <Alert tone="danger">{error}</Alert>}
+
+      <Card>
+        <CardHeader title="Details" />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Field label="Full name" required>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </Field>
+          <Field label="Email" required hint={mode === "edit" ? "Changing this does not change their login email." : "Becomes their login."}>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Employee ID (4 digits)" required hint="Used in the invoice number.">
+            <Input
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="1042"
+              required
+            />
+          </Field>
+          <Field label="WhatsApp number">
+            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+          </Field>
+          <Field label="Date joined">
+            <Input
+              type="date"
+              value={dateJoined ?? ""}
+              onChange={(e) => setDateJoined(e.target.value)}
+            />
+          </Field>
+          <Field label="Nationality">
+            <Input value={nationality} onChange={(e) => setNationality(e.target.value)} />
+          </Field>
+          <Field label="Work location">
+            <Input value={workLocation} onChange={(e) => setWorkLocation(e.target.value)} />
+          </Field>
+          <Field label="Head of department">
+            <Input value={hod} onChange={(e) => setHod(e.target.value)} />
+          </Field>
+          <Field label="Subjects" hint="Separate multiple subjects with commas.">
+            <Input
+              value={subjects}
+              onChange={(e) => setSubjects(e.target.value)}
+              placeholder="Algebra, Calculus"
+            />
+          </Field>
+          <Field label="Payment details">
+            <Textarea
+              value={paymentDetails}
+              onChange={(e) => setPaymentDetails(e.target.value)}
+              placeholder="Bank / transfer details"
+            />
+          </Field>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Pay"
+          description="Set a fixed salary and/or add rates. Rates appear as a dropdown in the team member's invoice line items."
+        />
+        <CardBody className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Currency" required>
+              <Select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as Currency)}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c} · {CURRENCY_META[c].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Fixed salary (optional)" hint="Leave blank if paid only by rate.">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={fixedSalary}
+                onChange={(e) => setFixedSalary(e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <Label>Rates (descriptor dropdown)</Label>
+              <Button type="button" size="sm" variant="brand-soft" onClick={addRate}>
+                + Add rate
+              </Button>
+            </div>
+            {rates.length === 0 && (
+              <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50/60 px-4 py-6 text-center text-sm text-ink-500">
+                No rates yet. Add one for each distinct rate (e.g. &quot;Weekday teaching&quot;,
+                &quot;Grade 10&quot;, &quot;Paper marking&quot;).
+              </p>
+            )}
+            <div className="space-y-3">
+              {rates.map((r) => (
+                <div
+                  key={r.key}
+                  className="grid gap-3 rounded-xl border border-ink-200 bg-ink-50/40 p-3 sm:grid-cols-12"
+                >
+                  <div className="sm:col-span-4">
+                    <Label>Descriptor</Label>
+                    <Input
+                      value={r.descriptor}
+                      onChange={(e) => patchRate(r.key, { descriptor: e.target.value })}
+                      placeholder="Weekday teaching"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <Label>Unit</Label>
+                    <Select
+                      value={r.unit}
+                      onChange={(e) =>
+                        patchRate(r.key, { unit: e.target.value as RateUnit })
+                      }
+                    >
+                      {RATE_UNITS.map((u) => (
+                        <option key={u} value={u}>
+                          {RATE_UNIT_LABELS[u]}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Amount</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={r.amount}
+                      onChange={(e) =>
+                        patchRate(r.key, { amount: Number(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Task</Label>
+                    <Select
+                      value={r.task ?? ""}
+                      onChange={(e) =>
+                        patchRate(r.key, {
+                          task: (e.target.value || null) as TaskType | null,
+                        })
+                      }
+                    >
+                      <option value="">Any</option>
+                      {TASKS.filter((t) => t !== "fixed_salary").map((t) => (
+                        <option key={t} value={t}>
+                          {TASK_LABELS[t]}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="flex items-end sm:col-span-1">
+                    <button
+                      type="button"
+                      onClick={() => removeRate(r.key)}
+                      className="h-10 w-full rounded-lg text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {mode === "create" && (
+        <Card>
+          <CardHeader
+            title="Login"
+            description="An initial password for their account. Share it securely (e.g. via WhatsApp)."
+          />
+          <CardBody>
+            <div className="flex flex-wrap items-end gap-3">
+              <Field label="Initial password" className="flex-1">
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                />
+              </Field>
+              <Button
+                type="button"
+                variant="neutral"
+                onClick={() => setPassword(randomPassword())}
+              >
+                Generate
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" loading={saving}>
+          {mode === "create" ? "Create team member" : "Save changes"}
+        </Button>
+        <Button href="/hr/team-members" variant="ghost">
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}

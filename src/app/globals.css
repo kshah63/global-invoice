@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-50 text-ink-800 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Tabular figures everywhere numbers matter (amounts, invoice numbers) */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif tracking-tight text-ink-900;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+
+  /* Focus ring — consistent, accessible */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  }
+}
+
+@layer components {
+  .app-container {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply rounded-2xl border border-ink-200 bg-white shadow-card;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+
+  .hint {
+    @apply text-xs text-ink-500;
+  }
+}
+
+/* Subtle brand backdrop used on auth + shell */
+.brand-mesh {
+  background-color: #0d223d;
+  background-image:
+    radial-gradient(at 12% 18%, rgba(48, 102, 166, 0.55) 0px, transparent 55%),
+    radial-gradient(at 85% 10%, rgba(192, 138, 34, 0.28) 0px, transparent 50%),
+    radial-gradient(at 78% 88%, rgba(23, 127, 133, 0.40) 0px, transparent 55%);
+}
+
+/* Print styles: only the printable invoice shows, chrome hidden */
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  @page {
+    margin: 16mm;
+  }
+}
