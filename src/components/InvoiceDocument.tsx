@@ -63,11 +63,26 @@ export function InvoiceDocument({
           <div className="mt-1 text-[0.7rem] font-semibold uppercase tracking-wider text-ink-400">
             Global Online
           </div>
+          <div className="mt-4">
+            <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-ink-400">
+              Billing period
+            </div>
+            <div className="font-medium text-ink-900">
+              {periodLabel(invoice.period_year, invoice.period_month)}
+            </div>
+          </div>
+          <div className="mt-2 space-y-0.5 text-xs text-ink-500">
+            <div>Created {formatDate(invoice.created_at)}</div>
+            {invoice.submitted_at && (
+              <div>Submitted {formatDate(invoice.submitted_at)}</div>
+            )}
+            {invoice.paid_at && <div>Paid {formatDate(invoice.paid_at)}</div>}
+          </div>
         </div>
       </div>
 
-      {/* Parties + meta */}
-      <div className="grid gap-6 py-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Parties */}
+      <div className="grid gap-6 py-6 sm:grid-cols-2">
         <Party label="From">
           <div className="font-medium text-ink-900">{invoice.display_name}</div>
           {teamMember?.employee_id && <div>ID: {teamMember.employee_id}</div>}
@@ -93,18 +108,6 @@ export function InvoiceDocument({
           {company?.phone && <div>{company.phone}</div>}
           {company?.registration_no && <div>Reg: {company.registration_no}</div>}
         </Party>
-
-        <Party label="Billing period">
-          <div className="font-medium text-ink-900">
-            {periodLabel(invoice.period_year, invoice.period_month)}
-          </div>
-        </Party>
-
-        <Party label="Dates">
-          <div>Created {formatDate(invoice.created_at)}</div>
-          {invoice.submitted_at && <div>Submitted {formatDate(invoice.submitted_at)}</div>}
-          {invoice.paid_at && <div>Paid {formatDate(invoice.paid_at)}</div>}
-        </Party>
       </div>
 
       {/* Line items */}
@@ -112,15 +115,15 @@ export function InvoiceDocument({
         <table className="w-full min-w-[720px] border-collapse text-sm print:min-w-0">
           <colgroup>
             <col style={{ width: "11%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "27%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "14%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "23%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "15%" }} />
           </colgroup>
           <thead>
-            <tr className="border-y border-ink-200 text-left text-[0.7rem] uppercase tracking-wider text-ink-500">
+            <tr className="border-y border-ink-200 text-left text-[0.7rem] uppercase tracking-wider text-ink-500 [&_th]:whitespace-nowrap">
               <th className="py-2 pr-3 font-semibold">Centre</th>
               <th className="py-2 pr-3 font-semibold">Task</th>
               <th className="py-2 pr-3 font-semibold">Note</th>
