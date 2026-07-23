@@ -236,7 +236,7 @@ export function RosterEditor({
                           patchRate(p.key, r.key, { unit: e.target.value as RateUnit })
                         }
                       >
-                        {RATE_UNITS.filter((u) => u !== "fixed").map((u) => (
+                        {RATE_UNITS.map((u) => (
                           <option key={u} value={u}>
                             {RATE_UNIT_LABELS[u]}
                           </option>

@@ -380,26 +380,30 @@ export function SupplierInvoiceEditor({
                           ))}
                         </Select>
                       </Field>
-                      <div>
-                        <Label>Sessions</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.5"
-                          value={row.sessions}
-                          onChange={(e) => patch(row.key, { sessions: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Hours</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.25"
-                          value={row.hours}
-                          onChange={(e) => patch(row.key, { hours: e.target.value })}
-                        />
-                      </div>
+                      {row.rate_unit !== "fixed" && (
+                        <>
+                          <div>
+                            <Label>Sessions</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={row.sessions}
+                              onChange={(e) => patch(row.key, { sessions: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label>Hours</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.25"
+                              value={row.hours}
+                              onChange={(e) => patch(row.key, { hours: e.target.value })}
+                            />
+                          </div>
+                        </>
+                      )}
                       <div>
                         <Label>Line total</Label>
                         <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
