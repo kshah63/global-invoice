@@ -102,7 +102,7 @@ export async function createDepartmentHead(input: {
     return { error: `Account created, but assigning the login ID failed: ${codeErr.message}` };
   }
 
-  revalidatePath("/hr/settings");
+  revalidatePath("/hr/team-members");
   return {};
 }
 
@@ -111,6 +111,6 @@ export async function deleteDepartmentHead(formData: FormData) {
   const profileId = String(formData.get("profile_id"));
   const admin = createAdminClient();
   await admin.auth.admin.deleteUser(profileId);
-  revalidatePath("/hr/settings");
-  redirect(`/hr/settings?ok=${encodeURIComponent("Department head removed.")}`);
+  revalidatePath("/hr/team-members");
+  redirect(`/hr/team-members?ok=${encodeURIComponent("Department head removed.")}`);
 }

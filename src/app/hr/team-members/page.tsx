@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { Flash } from "@/components/Flash";
-import { DeptHeadForm } from "@/components/hr/DeptHeadForm";
 import { setTeamMemberActive } from "@/actions/team-members";
 import { deleteDepartmentHead } from "@/actions/settings";
 import { formatCurrency } from "@/lib/format";
@@ -44,7 +43,14 @@ export default async function TeamMembersPage({
       <PageHeader
         title="People"
         description="Manage team members and department heads."
-        action={<Button href="/hr/team-members/new">Add team member</Button>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button href="/hr/team-members/new">Add team member</Button>
+            <Button href="/hr/department-heads/new" variant="neutral">
+              Add department head
+            </Button>
+          </div>
+        }
       />
 
       <Card>
@@ -136,15 +142,26 @@ export default async function TeamMembersPage({
       <Card className="mt-8">
         <CardHeader
           title="Department heads"
-          description="They submit session/hour cross-checks for HR to review. They sign in with their 4-digit Login ID."
+          description="They submit session/hour cross-checks and sign in with their 4-digit Login ID."
+          action={
+            <Button href="/hr/department-heads/new" size="sm" variant="brand-soft">
+              Add department head
+            </Button>
+          }
         />
-        <CardBody className="space-y-6">
-          {deptHeads.length > 0 && (
+        <CardBody className={deptHeads.length === 0 ? undefined : "p-0"}>
+          {deptHeads.length === 0 ? (
+            <EmptyState
+              title="No department heads yet"
+              description="Add one to enable session/hour cross-checks."
+              action={<Button href="/hr/department-heads/new">Add department head</Button>}
+            />
+          ) : (
             <ul className="divide-y divide-ink-100">
               {deptHeads.map((h) => (
                 <li
                   key={h.id}
-                  className="flex items-center justify-between gap-3 py-3"
+                  className="flex items-center justify-between gap-3 px-5 py-3"
                 >
                   <div>
                     <div className="font-medium text-ink-900">
@@ -178,9 +195,6 @@ export default async function TeamMembersPage({
               ))}
             </ul>
           )}
-          <div className="border-t border-ink-100 pt-5">
-            <DeptHeadForm />
-          </div>
         </CardBody>
       </Card>
     </>

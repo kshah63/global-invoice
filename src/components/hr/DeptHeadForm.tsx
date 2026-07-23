@@ -23,13 +23,11 @@ export function DeptHeadForm() {
   const [password, setPassword] = useState("");
   const [business, setBusiness] = useState<Centre>("MathVision");
   const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setOk(null);
     if (!/^[0-9]{4}$/.test(loginCode.trim())) {
       setError("Login ID must be a 4-digit code.");
       return;
@@ -46,23 +44,19 @@ export function DeptHeadForm() {
       business,
       loginCode: loginCode.trim(),
     });
-    setSaving(false);
     if (res.error) {
       setError(res.error);
+      setSaving(false);
       return;
     }
-    setOk(`${name} added as department head for ${business} (login ID ${loginCode.trim()}).`);
-    setName("");
-    setEmail("");
-    setLoginCode("");
-    setPassword("");
-    router.refresh();
+    router.push(
+      `/hr/team-members?ok=${encodeURIComponent(`${name} added as a department head (Login ID ${loginCode.trim()}).`)}`
+    );
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {error && <Alert tone="danger">{error}</Alert>}
-      {ok && <Alert tone="success">{ok}</Alert>}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
@@ -112,9 +106,14 @@ export function DeptHeadForm() {
           </div>
         </Field>
       </div>
-      <Button type="submit" loading={saving}>
-        Add department head
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" loading={saving}>
+          Add department head
+        </Button>
+        <Button href="/hr/team-members" variant="ghost">
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
