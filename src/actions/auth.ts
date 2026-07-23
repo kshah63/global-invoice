@@ -36,7 +36,22 @@ async function resolveEmail(identifier: string): Promise<string | null> {
     const { data: userRes } = await admin.auth.admin.getUserById(profileId);
     return userRes?.user?.email ?? null;
   }
-  return id.includes("@") ? id : null;
+
+  if (id.includes("@")) return id;
+
+  // Otherwise it may be a supplier code (the leader logs in with it).
+  const admin = createAdminClient();
+  const { data: sup } = await admin
+    .from("team_members")
+    .select("profile_id")
+    .eq("member_type", "supplier")
+    .eq("supplier_code", id)
+    .maybeSingle();
+  if (sup?.profile_id) {
+    const { data: userRes } = await admin.auth.admin.getUserById(sup.profile_id);
+    return userRes?.user?.email ?? null;
+  }
+  return null;
 }
 
 /**

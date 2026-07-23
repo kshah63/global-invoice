@@ -37,6 +37,10 @@ const DH = {
   email: process.env.SEED_DH_EMAIL || "head@mathvision.demo",
   password: process.env.SEED_DH_PASSWORD || "Password123!",
 };
+const SUP = {
+  email: process.env.SEED_SUP_EMAIL || "supplier@mathvision.demo",
+  password: process.env.SEED_SUP_PASSWORD || "Password123!",
+};
 
 const pad2 = (n) => String(n).padStart(2, "0");
 const invNo = (emp, y, m) => `INV-${emp}-${y}-${pad2(m)}`;
@@ -104,6 +108,57 @@ async function ensureTeamMember(profileId, fields, rates) {
     );
   }
   return tm.id;
+}
+
+async function ensureSupplier(profileId, fields) {
+  const { data: existing } = await admin
+    .from("team_members")
+    .select("id")
+    .eq("supplier_code", fields.supplier_code)
+    .maybeSingle();
+  if (existing) {
+    await admin
+      .from("team_members")
+      .update({ profile_id: profileId, member_type: "supplier", ...fields })
+      .eq("id", existing.id);
+    return existing.id;
+  }
+  const { data, error } = await admin
+    .from("team_members")
+    .insert({ profile_id: profileId, member_type: "supplier", use_hr_name: true, ...fields })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+async function ensureSupplierMember(supplierId, fields, rates) {
+  const { data: existing } = await admin
+    .from("supplier_members")
+    .select("id")
+    .eq("supplier_id", supplierId)
+    .eq("code", fields.code)
+    .maybeSingle();
+  let id;
+  if (existing) {
+    id = existing.id;
+    await admin.from("supplier_members").update({ name: fields.name }).eq("id", id);
+  } else {
+    const { data, error } = await admin
+      .from("supplier_members")
+      .insert({ supplier_id: supplierId, ...fields })
+      .select("id")
+      .single();
+    if (error) throw error;
+    id = data.id;
+  }
+  await admin.from("supplier_member_rates").delete().eq("supplier_member_id", id);
+  if (rates.length) {
+    await admin.from("supplier_member_rates").insert(
+      rates.map((r, i) => ({ ...r, supplier_member_id: id, sort_order: i }))
+    );
+  }
+  return id;
 }
 
 function statusTimestamps(status, y, m) {
@@ -352,6 +407,52 @@ async function main() {
     ]
   );
 
+  // --- Supplier: Bright Minds Agency (leader logs in, invoices for a roster) ---
+  const supUser = await ensureUser(SUP.email, SUP.password, {
+    role: "team_member",
+    full_name: "Bright Minds Agency",
+  });
+  const bright = await ensureSupplier(supUser.id, {
+    name: "Bright Minds Agency",
+    email: SUP.email,
+    supplier_code: "BRIGHT",
+    currency: "SGD",
+    payment_details: "Bank: DBS ****9012",
+  });
+  const jane = await ensureSupplierMember(
+    bright,
+    { name: "Jane Tan", code: "3001" },
+    [
+      { descriptor: "Weekday teaching", unit: "per_hour", amount: 50, task: "teaching" },
+      { descriptor: "Paper marking", unit: "per_session", amount: 18, task: "paper_marking" },
+    ]
+  );
+  const omar = await ensureSupplierMember(
+    bright,
+    { name: "Omar Ali", code: "3002" },
+    [{ descriptor: "Consultancy", unit: "per_hour", amount: 80, task: "consultancy" }]
+  );
+  await ensureInvoice(
+    {
+      teamMemberId: bright,
+      employeeId: "BRIGHT",
+      year: Y,
+      month: 7,
+      status: "submitted",
+      displayName: "Bright Minds Agency",
+      shipTo: null,
+      currency: "SGD",
+      company,
+      taxRate: 9,
+      notes: "July services for our teachers plus printing costs.",
+    },
+    [
+      { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "teaching", note: "Weekday classes", sessions: 0, hours: 18, rate_descriptor: "Weekday teaching", rate_unit: "per_hour", rate_amount: 50 },
+      { supplier_member_id: omar, worked_by_name: "Omar Ali", centre: "MathVision", task: "consultancy", note: "Curriculum review", sessions: 0, hours: 5, rate_descriptor: "Consultancy", rate_unit: "per_hour", rate_amount: 80 },
+      { supplier_member_id: null, worked_by_name: null, centre: "MathVision", task: "misc_expenses", note: "Printing", sessions: 0, hours: 0, rate_descriptor: "Printing costs", rate_unit: "fixed", rate_amount: 120 },
+    ]
+  );
+
   // Department head cross-check for Aisha (July) — small mismatch to demo the comparison
   await ensureCheck(
     dh.id,
@@ -379,6 +480,7 @@ async function main() {
   console.log(`  HR:              ${HR.email} / ${HR.password}`);
   console.log(`  Team Member:     ${TM.email} / ${TM.password}`);
   console.log(`  Department Head: ${DH.email} / ${DH.password}`);
+  console.log(`  Supplier:        ${SUP.email} / ${SUP.password}  (or supplier code BRIGHT)`);
   console.log("  (extra teachers: teacher2@mathvision.demo, teacher3@mathvision.demo)\n");
 }
 

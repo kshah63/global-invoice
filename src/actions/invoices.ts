@@ -55,13 +55,19 @@ export async function createInvoice(formData: FormData) {
     ? tm.name
     : tm.invoice_display_name || tm.name;
 
+  // Individuals use their 4-digit employee ID; suppliers use their supplier code.
+  const idPart =
+    tm.member_type === "supplier"
+      ? tm.supplier_code || "SUP"
+      : tm.employee_id || "0000";
+
   const { data: inserted, error } = await supabase
     .from("invoices")
     .insert({
       team_member_id: tm.id,
       period_year: year,
       period_month: month,
-      invoice_number: generateInvoiceNumber(tm.employee_id, year, month),
+      invoice_number: generateInvoiceNumber(idPart, year, month),
       status: "draft",
       display_name: displayName,
       ship_to_address: tm.ship_to_address,
@@ -120,6 +126,51 @@ export async function saveInvoice(
 ): Promise<{ error?: string }> {
   const supabase = createClient();
   const { error } = await supabase.rpc("save_invoice", {
+    p_invoice: input.invoiceId,
+    p_display_name: input.displayName,
+    p_ship_to: input.shipTo,
+    p_notes: input.notes,
+    p_tax_rate: input.taxRate,
+    p_items: input.items,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/team/invoices/${input.invoiceId}`);
+  revalidatePath("/team/invoices");
+  revalidatePath("/team");
+  return {};
+}
+
+// --- Supplier: save invoice (atomic, via RPC) -----------------------------
+
+export interface SaveSupplierItem {
+  centre: Centre;
+  task: TaskType;
+  note: string | null;
+  sessions: number;
+  hours: number;
+  rate_id: string | null; // supplier_member_rates id (person lines)
+  rate_descriptor: string | null;
+  rate_unit: RateUnit; // "fixed" for adjustment/misc lines
+  rate_amount: number; // typed amount for "fixed" lines
+  sort_order: number;
+  supplier_member_id: string | null;
+}
+
+export interface SaveSupplierInvoiceInput {
+  invoiceId: string;
+  displayName: string;
+  shipTo: string | null;
+  notes: string | null;
+  taxRate: number;
+  items: SaveSupplierItem[];
+}
+
+export async function saveSupplierInvoice(
+  input: SaveSupplierInvoiceInput
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("save_supplier_invoice", {
     p_invoice: input.invoiceId,
     p_display_name: input.displayName,
     p_ship_to: input.shipTo,

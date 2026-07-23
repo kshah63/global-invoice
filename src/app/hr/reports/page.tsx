@@ -28,7 +28,7 @@ export default async function ReportsPage({
   const [{ data: memberRows }, { data: invRows }] = await Promise.all([
     supabase
       .from("team_members")
-      .select("id, name, employee_id, currency")
+      .select("id, name, employee_id, supplier_code, member_type, currency")
       .eq("active", true)
       .order("name"),
     supabase
@@ -39,8 +39,10 @@ export default async function ReportsPage({
   ]);
 
   const members =
-    (memberRows as Pick<TeamMember, "id" | "name" | "employee_id" | "currency">[]) ??
-    [];
+    (memberRows as Pick<
+      TeamMember,
+      "id" | "name" | "employee_id" | "supplier_code" | "member_type" | "currency"
+    >[]) ?? [];
   const invByMember = new Map<string, Invoice>();
   (invRows as Invoice[] | null)?.forEach((i) => invByMember.set(i.team_member_id, i));
 
@@ -116,8 +118,8 @@ export default async function ReportsPage({
                         <td className="px-5 py-3 font-medium text-ink-900">
                           {member.name}
                         </td>
-                        <td className="px-5 py-3 font-mono text-xs text-ink-500 tnum">
-                          {member.employee_id}
+                        <td className="px-5 py-3 font-mono text-xs text-ink-500">
+                          {member.employee_id ?? member.supplier_code}
                         </td>
                         <td className="px-5 py-3">
                           <StatusPill status={status} />

@@ -42,6 +42,9 @@ export function InvoiceDocument({
 }) {
   const company = invoice.company_snapshot;
   const currency = invoice.currency;
+  const isSupplierInvoice = items.some(
+    (i) => i.supplier_member_id || i.worked_by_name
+  );
 
   return (
     <div className="print-area rounded-2xl border border-ink-200 bg-white p-6 shadow-card sm:p-9">
@@ -124,7 +127,9 @@ export function InvoiceDocument({
           </colgroup>
           <thead>
             <tr className="border-y border-ink-200 text-left text-[0.7rem] uppercase tracking-wider text-ink-500 [&_th]:whitespace-nowrap">
-              <th className="py-2 pr-3 font-semibold">Centre</th>
+              <th className="py-2 pr-3 font-semibold">
+                {isSupplierInvoice ? "Person" : "Centre"}
+              </th>
               <th className="py-2 pr-3 font-semibold">Task</th>
               <th className="py-2 pr-3 font-semibold">Note</th>
               <th className="py-2 pr-3 text-right font-semibold">Sessions</th>
@@ -145,7 +150,13 @@ export function InvoiceDocument({
               const fixed = it.rate_unit === "fixed";
               return (
                 <tr key={it.id} className="align-top">
-                  <td className="py-2.5 pr-3">{fixed ? "—" : it.centre}</td>
+                  <td className="py-2.5 pr-3">
+                    {isSupplierInvoice
+                      ? it.worked_by_name ?? "—"
+                      : fixed
+                        ? "—"
+                        : it.centre}
+                  </td>
                   <td className="py-2.5 pr-3">{TASK_LABELS[it.task]}</td>
                   <td className="py-2.5 pr-3 text-ink-600">{it.note || "—"}</td>
                   <td className="py-2.5 pr-3 text-right tnum">

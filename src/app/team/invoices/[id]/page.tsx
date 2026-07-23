@@ -3,16 +3,27 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { canTeamMemberEdit } from "@/lib/invoice";
-import { periodLabel } from "@/lib/constants";
+import { periodLabel, type RateUnit, type TaskType } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { InvoiceEditor } from "@/components/invoice/InvoiceEditor";
+import {
+  SupplierInvoiceEditor,
+  type RosterPerson,
+} from "@/components/invoice/SupplierInvoiceEditor";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { deleteInvoice } from "@/actions/invoices";
-import type { Invoice, InvoiceLineItem, TeamMember, TeamMemberRate } from "@/lib/types";
+import type {
+  Invoice,
+  InvoiceLineItem,
+  SupplierMember,
+  SupplierMemberRate,
+  TeamMember,
+  TeamMemberRate,
+} from "@/lib/types";
 
 export default async function TeamInvoiceDetail({
   params,
@@ -32,29 +43,59 @@ export default async function TeamInvoiceDetail({
   if (!invoiceRow) notFound();
   const invoice = invoiceRow as Invoice;
 
-  const [{ data: itemsRows }, { data: tmRow }, { data: rateRows }] =
-    await Promise.all([
-      supabase
-        .from("invoice_line_items")
-        .select("*")
-        .eq("invoice_id", invoice.id)
-        .order("sort_order"),
-      supabase
-        .from("team_members")
-        .select("*")
-        .eq("id", invoice.team_member_id)
-        .maybeSingle(),
-      supabase
-        .from("team_member_rates")
-        .select("*")
-        .eq("team_member_id", invoice.team_member_id)
-        .order("sort_order"),
-    ]);
+  const [{ data: itemsRows }, { data: tmRow }] = await Promise.all([
+    supabase
+      .from("invoice_line_items")
+      .select("*")
+      .eq("invoice_id", invoice.id)
+      .order("sort_order"),
+    supabase
+      .from("team_members")
+      .select("*")
+      .eq("id", invoice.team_member_id)
+      .maybeSingle(),
+  ]);
 
   const items = (itemsRows as InvoiceLineItem[]) ?? [];
   const tm = tmRow as TeamMember | null;
-  const rates = (rateRows as TeamMemberRate[]) ?? [];
+  const isSupplier = tm?.member_type === "supplier";
   const editable = canTeamMemberEdit(invoice.status);
+
+  let rates: TeamMemberRate[] = [];
+  let roster: RosterPerson[] = [];
+  if (isSupplier) {
+    const { data: rosterRows } = await supabase
+      .from("supplier_members")
+      .select("id, name, sort_order, rates:supplier_member_rates(*)")
+      .eq("supplier_id", invoice.team_member_id)
+      .eq("active", true)
+      .order("sort_order");
+    roster = (
+      (rosterRows as (Pick<SupplierMember, "id" | "name"> & {
+        rates: SupplierMemberRate[];
+      })[]) ?? []
+    ).map((m) => ({
+      id: m.id,
+      name: m.name,
+      rates: (m.rates ?? [])
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((r) => ({
+          id: r.id,
+          descriptor: r.descriptor,
+          unit: r.unit as RateUnit,
+          amount: Number(r.amount),
+          task: (r.task ?? null) as TaskType | null,
+        })),
+    }));
+  } else {
+    const { data: rateRows } = await supabase
+      .from("team_member_rates")
+      .select("*")
+      .eq("team_member_id", invoice.team_member_id)
+      .order("sort_order");
+    rates = (rateRows as TeamMemberRate[]) ?? [];
+  }
 
   return (
     <>
@@ -80,15 +121,24 @@ export default async function TeamInvoiceDetail({
 
       {editable ? (
         <>
-          <InvoiceEditor
-            invoice={invoice}
-            initialItems={items}
-            rates={rates}
-            teamMember={{
-              name: tm?.name ?? invoice.display_name,
-              fixed_salary: tm?.fixed_salary ?? null,
-            }}
-          />
+          {isSupplier ? (
+            <SupplierInvoiceEditor
+              invoice={invoice}
+              initialItems={items}
+              roster={roster}
+              supplierName={tm?.name ?? invoice.display_name}
+            />
+          ) : (
+            <InvoiceEditor
+              invoice={invoice}
+              initialItems={items}
+              rates={rates}
+              teamMember={{
+                name: tm?.name ?? invoice.display_name,
+                fixed_salary: tm?.fixed_salary ?? null,
+              }}
+            />
+          )}
           {invoice.status === "draft" && (
             <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
               <form action={deleteInvoice} className="flex items-center justify-between gap-3">

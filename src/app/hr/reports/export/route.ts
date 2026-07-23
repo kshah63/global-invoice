@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const [{ data: memberRows }, { data: invRows }] = await Promise.all([
     supabase
       .from("team_members")
-      .select("id, name, employee_id, currency, payment_details")
+      .select("id, name, employee_id, supplier_code, member_type, currency, payment_details")
       .eq("active", true)
       .order("name"),
     supabase
@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
   ((invRows as any[]) ?? []).forEach((i) => invByMember.set(i.team_member_id, i));
 
   const header = [
-    "Employee ID",
+    "ID",
+    "Type",
     "Name",
     "Invoice Number",
     "Status",
@@ -55,7 +56,8 @@ export async function GET(req: NextRequest) {
   const body = members.map((m) => {
     const inv = invByMember.get(m.id);
     return [
-      m.employee_id,
+      m.employee_id ?? m.supplier_code ?? "",
+      m.member_type === "supplier" ? "Supplier" : "Individual",
       m.name,
       inv?.invoice_number ?? "",
       inv?.status ?? "not_started",

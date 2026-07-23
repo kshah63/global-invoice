@@ -201,7 +201,7 @@ export async function setTeamMemberActive(formData: FormData) {
   await supabase.from("team_members").update({ active }).eq("id", id);
   revalidatePath("/hr/team-members");
   revalidatePath(`/hr/team-members/${id}`);
-  redirect(`/hr/team-members/${id}`);
+  redirect("/hr/team-members");
 }
 
 // --- Delete ---------------------------------------------------------------

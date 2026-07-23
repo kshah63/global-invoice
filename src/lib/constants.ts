@@ -53,23 +53,52 @@ export type Centre = (typeof CENTRES)[number];
 
 // --- Tasks ----------------------------------------------------------------
 
+// Individual (team member) tasks
 export const TASKS = [
   "teaching",
   "teacher_training",
   "paper_marking",
   "fixed_salary",
 ] as const;
-export type TaskType = (typeof TASKS)[number];
+
+// Supplier tasks (no fixed salary; adds consultancy/ambassador/admin/misc)
+export const SUPPLIER_TASKS = [
+  "teaching",
+  "teacher_training",
+  "paper_marking",
+  "consultancy",
+  "phone_ambassador",
+  "administrative_services",
+  "misc_expenses",
+] as const;
+
+export type TaskType =
+  | (typeof TASKS)[number]
+  | (typeof SUPPLIER_TASKS)[number];
 
 export const TASK_LABELS: Record<TaskType, string> = {
   teaching: "Teaching",
   teacher_training: "Teacher Training",
   paper_marking: "Paper Marking",
   fixed_salary: "Fixed Salary",
+  consultancy: "Consultancy",
+  phone_ambassador: "Phone Ambassador",
+  administrative_services: "Administrative Services",
+  misc_expenses: "Misc. Expenses",
 };
 
 /** When this task is chosen, session/time/rate inputs are driven by the fixed salary. */
 export const isFixedSalaryTask = (t: TaskType) => t === "fixed_salary";
+
+// --- Member type (individual vs supplier) ---------------------------------
+
+export const MEMBER_TYPES = ["individual", "supplier"] as const;
+export type MemberType = (typeof MEMBER_TYPES)[number];
+
+export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
+  individual: "Individual",
+  supplier: "Supplier",
+};
 
 // --- Rate units -----------------------------------------------------------
 

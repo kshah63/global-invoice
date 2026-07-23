@@ -2,6 +2,7 @@ import type {
   Centre,
   Currency,
   InvoiceStatus,
+  MemberType,
   RateUnit,
   Role,
   TaskType,
@@ -26,12 +27,14 @@ export interface Profile {
 export interface TeamMember {
   id: string;
   profile_id: string | null;
+  member_type: MemberType;
+  supplier_code: string | null; // suppliers only (used in invoice number)
   name: string;
   invoice_display_name: string | null;
   use_hr_name: boolean;
   whatsapp_number: string | null;
   email: string;
-  employee_id: string; // 4-digit code
+  employee_id: string | null; // 4-digit code (individuals); null for suppliers
   date_joined: string | null;
   nationality: string | null;
   work_location: string | null;
@@ -114,6 +117,35 @@ export interface InvoiceLineItem {
   rate_amount: number;
   line_total: number;
   sort_order: number;
+  supplier_member_id: string | null;
+  worked_by_name: string | null;
+}
+
+// --- Suppliers ------------------------------------------------------------
+
+export interface SupplierMember {
+  id: string;
+  supplier_id: string;
+  name: string;
+  code: string; // 4-digit
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface SupplierMemberRate {
+  id: string;
+  supplier_member_id: string;
+  descriptor: string;
+  unit: RateUnit;
+  amount: number;
+  task: TaskType | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface SupplierMemberWithRates extends SupplierMember {
+  rates: SupplierMemberRate[];
 }
 
 export interface DeptHeadCheck {

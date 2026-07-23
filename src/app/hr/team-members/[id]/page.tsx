@@ -57,7 +57,7 @@ export default async function EditTeamMember({
         initial={{
           name: tm.name,
           email: tm.email,
-          employee_id: tm.employee_id,
+          employee_id: tm.employee_id ?? "",
           whatsapp_number: tm.whatsapp_number,
           date_joined: tm.date_joined,
           nationality: tm.nationality,

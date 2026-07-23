@@ -169,8 +169,8 @@ export default async function HrDashboard({
                         </Link>
                         <div className="text-xs text-ink-400">{member.email}</div>
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs text-ink-500 tnum">
-                        {member.employee_id}
+                      <td className="px-5 py-3 font-mono text-xs text-ink-500">
+                        {member.employee_id ?? member.supplier_code}
                       </td>
                       <td className="px-5 py-3">
                         <StatusPill status={status} />

@@ -27,7 +27,7 @@ export function CheckEditor({
   defaultBusiness,
   initial,
 }: {
-  teamMembers: { id: string; name: string; employee_id: string }[];
+  teamMembers: { id: string; name: string; employee_id: string | null }[];
   defaultBusiness: Centre;
   initial?: {
     id: string;
