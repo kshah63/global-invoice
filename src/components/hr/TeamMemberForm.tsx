@@ -136,6 +136,18 @@ export function TeamMemberForm({
       );
       return;
     }
+    // A rate is only saved if it has a descriptor (it labels the rate in the
+    // invoice dropdown). Catch a filled-in rate that's missing one, rather than
+    // silently dropping it.
+    const rateMissingDescriptor = rates.some(
+      (r) => r.descriptor.trim() === "" && (Number(r.amount) > 0 || r.task !== null)
+    );
+    if (rateMissingDescriptor) {
+      setError(
+        'Every rate needs a descriptor (e.g. "Weekday teaching"). Add one, or remove the empty rate line.'
+      );
+      return;
+    }
     setSaving(true);
     const input = buildInput();
 
@@ -295,7 +307,7 @@ export function TeamMemberForm({
                     </Select>
                   </div>
                   <div className="sm:col-span-4">
-                    <Label>Descriptor</Label>
+                    <Label required>Descriptor</Label>
                     <Input
                       value={r.descriptor}
                       onChange={(e) => patchRate(r.key, { descriptor: e.target.value })}
