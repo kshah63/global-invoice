@@ -143,18 +143,12 @@ export default async function TeamMembersPage({
         <CardHeader
           title="Department heads"
           description="They submit session/hour cross-checks and sign in with their 4-digit Login ID."
-          action={
-            <Button href="/hr/department-heads/new" size="sm" variant="brand-soft">
-              Add department head
-            </Button>
-          }
         />
         <CardBody className={deptHeads.length === 0 ? undefined : "p-0"}>
           {deptHeads.length === 0 ? (
             <EmptyState
               title="No department heads yet"
-              description="Add one to enable session/hour cross-checks."
-              action={<Button href="/hr/department-heads/new">Add department head</Button>}
+              description="Use “Add department head” at the top to add one."
             />
           ) : (
             <ul className="divide-y divide-ink-100">
