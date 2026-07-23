@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CURRENCIES,
   CURRENCY_META,
@@ -73,7 +74,9 @@ export function TeamMemberForm({
   );
 
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   function addRate() {
     setRates((prev) => [
@@ -122,6 +125,7 @@ export function TeamMemberForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     if (!/^[0-9]{4}$/.test(employeeId.trim())) {
       setError("Employee ID must be a 4-digit code.");
       return;
@@ -134,20 +138,33 @@ export function TeamMemberForm({
     }
     setSaving(true);
     const input = buildInput();
-    const res =
-      mode === "create"
-        ? await createTeamMember({ ...input, password, sendWelcomeEmail })
-        : await updateTeamMember(id!, input);
-    // On success the action redirects; we only get here on error.
+
+    if (mode === "create") {
+      // Create navigates to the new member's page on success; only returns on error.
+      const res = await createTeamMember({ ...input, password, sendWelcomeEmail });
+      if (res?.error) {
+        setError(res.error);
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Edit stays on the same page, so handle success here (no redirect).
+    const res = await updateTeamMember(id!, input);
+    setSaving(false);
     if (res?.error) {
       setError(res.error);
-      setSaving(false);
+      return;
     }
+    setNotice("Changes saved.");
+    router.refresh();
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
+      {notice && <Alert tone="success">{notice}</Alert>}
 
       <Card>
         <CardHeader title="Details" />

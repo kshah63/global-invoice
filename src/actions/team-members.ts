@@ -186,7 +186,9 @@ export async function updateTeamMember(
 
   revalidatePath("/hr/team-members");
   revalidatePath(`/hr/team-members/${id}`);
-  redirect(`/hr/team-members/${id}?ok=${encodeURIComponent("Changes saved.")}`);
+  // Return (don't redirect): the edit page is the same route, so a redirect
+  // would be a soft navigation that leaves the form's Save button spinning.
+  return {};
 }
 
 // --- Active toggle --------------------------------------------------------
