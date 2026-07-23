@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CENTRES,
+  ADJUSTMENT_TASK,
   RATE_UNIT_LABELS,
   TASKS,
   TASK_LABELS,
@@ -22,23 +23,27 @@ import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 import { StatusPill } from "@/components/ui/Badge";
 
+type Direction = "add" | "subtract";
 interface Row {
   key: string;
   centre: Centre;
   task: TaskType;
-  note: string;
+  note: string; // adjustment rows: the (required) description
   sessions: string;
   hours: string;
   rate_id: string;
   rate_descriptor: string;
   rate_unit: RateUnit;
-  rate_amount: number;
+  rate_amount: number; // adjustment rows: positive magnitude (sign from `direction`)
+  direction: Direction; // adjustment rows only
 }
 
 let rowSeq = 0;
 const newKey = () => `row-${rowSeq++}-${Math.round(Math.random() * 1e6)}`;
 
 function toRow(it: InvoiceLineItem): Row {
+  const amt = Number(it.rate_amount ?? 0);
+  const isAdj = it.task === ADJUSTMENT_TASK;
   return {
     key: newKey(),
     centre: it.centre,
@@ -49,7 +54,8 @@ function toRow(it: InvoiceLineItem): Row {
     rate_id: it.rate_id ?? "",
     rate_descriptor: it.rate_descriptor ?? "",
     rate_unit: it.rate_unit,
-    rate_amount: Number(it.rate_amount ?? 0),
+    rate_amount: isAdj ? Math.abs(amt) : amt,
+    direction: isAdj && amt < 0 ? "subtract" : "add",
   };
 }
 
@@ -79,14 +85,19 @@ export function InvoiceEditor({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const lineTotals = rows.map((r) =>
-    computeLineTotal({
+  function rowTotal(r: Row): number {
+    if (r.task === ADJUSTMENT_TASK) {
+      const mag = Math.abs(Number(r.rate_amount) || 0);
+      return r.direction === "subtract" ? -mag : mag;
+    }
+    return computeLineTotal({
       rate_unit: r.rate_unit,
       rate_amount: r.rate_amount,
       sessions: Number(r.sessions) || 0,
       hours: Number(r.hours) || 0,
-    })
-  );
+    });
+  }
+  const lineTotals = rows.map(rowTotal);
   const totals = useMemo(
     () => computeInvoiceTotals(lineTotals, Number(taxRate) || 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,6 +177,26 @@ export function InvoiceEditor({
         rate_descriptor: "",
         rate_unit: "per_session",
         rate_amount: 0,
+        direction: "subtract",
+      },
+    ]);
+  }
+
+  function addAdjustmentRow() {
+    setRows((prev) => [
+      ...prev,
+      {
+        key: newKey(),
+        centre: "MathVision",
+        task: ADJUSTMENT_TASK,
+        note: "",
+        sessions: "0",
+        hours: "0",
+        rate_id: "",
+        rate_descriptor: "",
+        rate_unit: "fixed",
+        rate_amount: 0,
+        direction: "subtract",
       },
     ]);
   }
@@ -175,23 +206,52 @@ export function InvoiceEditor({
   }
 
   function buildItems(): SaveInvoiceItem[] {
-    return rows.map((r, i) => ({
-      centre: r.centre,
-      task: r.task,
-      note: r.note.trim() || null,
-      sessions: Number(r.sessions) || 0,
-      hours: Number(r.hours) || 0,
-      rate_id: r.rate_id || null,
-      rate_descriptor: r.rate_descriptor || null,
-      rate_unit: r.rate_unit,
-      rate_amount: r.rate_amount || 0,
-      sort_order: i,
-    }));
+    return rows.map((r, i) => {
+      if (r.task === ADJUSTMENT_TASK) {
+        const mag = Math.abs(Number(r.rate_amount) || 0);
+        const signed = r.direction === "subtract" ? -mag : mag;
+        const description = r.note.trim();
+        return {
+          centre: "MathVision",
+          task: ADJUSTMENT_TASK,
+          note: description || null,
+          sessions: 0,
+          hours: 0,
+          rate_id: null,
+          rate_descriptor: description || "Adjustment",
+          rate_unit: "fixed",
+          rate_amount: signed,
+          sort_order: i,
+        };
+      }
+      return {
+        centre: r.centre,
+        task: r.task,
+        note: r.note.trim() || null,
+        sessions: Number(r.sessions) || 0,
+        hours: Number(r.hours) || 0,
+        rate_id: r.rate_id || null,
+        rate_descriptor: r.rate_descriptor || null,
+        rate_unit: r.rate_unit,
+        rate_amount: r.rate_amount || 0,
+        sort_order: i,
+      };
+    });
   }
 
   async function doSave(): Promise<boolean> {
     setError(null);
     setNotice(null);
+    // Adjustments need a description and a positive amount (the sign comes from
+    // the addition/subtraction toggle).
+    const badAdj = rows.find(
+      (r) =>
+        r.task === ADJUSTMENT_TASK && (!r.note.trim() || !(Number(r.rate_amount) > 0))
+    );
+    if (badAdj) {
+      setError("Every adjustment needs a description and an amount greater than zero.");
+      return false;
+    }
     // Clamp to [0, 100] and round to the DB's numeric(6,3) precision so the
     // preview total matches what the server stores.
     const cleanTax = Math.min(100, Math.max(0, Math.round((Number(taxRate) || 0) * 1000) / 1000));
@@ -293,9 +353,14 @@ export function InvoiceEditor({
           title="Line items"
           description="Centre × task × rate. Pick a rate from your configured rates; totals follow the rate's unit."
           action={
-            <Button variant="brand-soft" size="sm" onClick={addRow} type="button">
-              + Add line
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="brand-soft" size="sm" onClick={addRow} type="button">
+                + Add line
+              </Button>
+              <Button variant="neutral" size="sm" onClick={addAdjustmentRow} type="button">
+                + Adjustment
+              </Button>
+            </div>
           }
         />
         <CardBody className="space-y-4">
@@ -307,6 +372,7 @@ export function InvoiceEditor({
 
           {rows.map((row, i) => {
             const fixed = isFixedSalaryTask(row.task);
+            const isAdjustment = row.task === ADJUSTMENT_TASK;
             const total = lineTotals[i];
             return (
               <div
@@ -315,7 +381,7 @@ export function InvoiceEditor({
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-ink-400">
-                    Line {i + 1}
+                    {isAdjustment ? `Adjustment ${i + 1}` : `Line ${i + 1}`}
                   </span>
                   <button
                     type="button"
@@ -326,6 +392,47 @@ export function InvoiceEditor({
                   </button>
                 </div>
 
+                {isAdjustment ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Description" required>
+                      <Input
+                        value={row.note}
+                        onChange={(e) => patchRow(row.key, { note: e.target.value })}
+                        placeholder="Unpaid day off"
+                      />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Type">
+                        <Select
+                          value={row.direction}
+                          onChange={(e) =>
+                            patchRow(row.key, { direction: e.target.value as Direction })
+                          }
+                        >
+                          <option value="subtract">Subtraction (−)</option>
+                          <option value="add">Addition (+)</option>
+                        </Select>
+                      </Field>
+                      <Field label={`Amount (${currency})`} hint="A positive number.">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={row.rate_amount ? String(row.rate_amount) : ""}
+                          onChange={(e) =>
+                            patchRow(row.key, { rate_amount: Number(e.target.value) })
+                          }
+                        />
+                      </Field>
+                    </div>
+                    <div className="sm:col-span-2 flex items-center justify-between rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm">
+                      <span className="text-ink-500">Line total</span>
+                      <span className="font-medium tnum">{formatCurrency(total, currency)}</span>
+                    </div>
+                  </div>
+                ) : (
+                <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field
                     label="Centre"
@@ -452,6 +559,8 @@ export function InvoiceEditor({
                     />
                   </Field>
                 </div>
+                </>
+                )}
               </div>
             );
           })}
