@@ -2,15 +2,17 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
-import { Card, CardBody } from "@/components/ui/Card";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { Flash } from "@/components/Flash";
+import { DeptHeadForm } from "@/components/hr/DeptHeadForm";
 import { setTeamMemberActive } from "@/actions/team-members";
+import { deleteDepartmentHead } from "@/actions/settings";
 import { formatCurrency } from "@/lib/format";
-import type { TeamMember } from "@/lib/types";
+import type { Profile, TeamMember } from "@/lib/types";
 
 export const metadata = { title: "Team Members" };
 
@@ -21,12 +23,20 @@ export default async function TeamMembersPage({
 }) {
   await requireRole("hr");
   const supabase = createClient();
-  const { data } = await supabase
-    .from("team_members")
-    .select("*")
-    .order("active", { ascending: false })
-    .order("name");
+  const [{ data }, { data: heads }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("*")
+      .order("active", { ascending: false })
+      .order("name"),
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "department_head")
+      .order("full_name"),
+  ]);
   const members = (data as TeamMember[]) ?? [];
+  const deptHeads = (heads as Profile[]) ?? [];
 
   return (
     <>
@@ -119,6 +129,57 @@ export default async function TeamMembersPage({
               </table>
             </div>
           )}
+        </CardBody>
+      </Card>
+
+      <Card className="mt-8">
+        <CardHeader
+          title="Department heads"
+          description="They submit session/hour cross-checks for HR to review. They sign in with their 4-digit Login ID."
+        />
+        <CardBody className="space-y-6">
+          {deptHeads.length > 0 && (
+            <ul className="divide-y divide-ink-100">
+              {deptHeads.map((h) => (
+                <li
+                  key={h.id}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
+                  <div>
+                    <div className="font-medium text-ink-900">
+                      {h.full_name ?? h.email}
+                    </div>
+                    <div className="text-xs text-ink-400">{h.email}</div>
+                    {h.login_code && (
+                      <div className="text-xs text-ink-400">
+                        Login ID: {h.login_code}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {h.business && (
+                      <Badge className="bg-brand-50 text-brand-700 ring-brand-200">
+                        {h.business}
+                      </Badge>
+                    )}
+                    <form action={deleteDepartmentHead}>
+                      <input type="hidden" name="profile_id" value={h.id} />
+                      <SubmitButton
+                        variant="ghost"
+                        size="sm"
+                        confirm={`Remove ${h.full_name ?? h.email}?`}
+                      >
+                        Remove
+                      </SubmitButton>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="border-t border-ink-100 pt-5">
+            <DeptHeadForm />
+          </div>
         </CardBody>
       </Card>
     </>
