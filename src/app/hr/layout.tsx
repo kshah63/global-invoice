@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 
 const NAV: NavItem[] = [
   { href: "/hr", label: "Dashboard", exact: true },
-  { href: "/hr/team-members", label: "Team Members" },
+  { href: "/hr/team-members", label: "People" },
   { href: "/hr/invoices", label: "Invoices" },
   { href: "/hr/periods", label: "Periods" },
   { href: "/hr/messages", label: "Messages" },

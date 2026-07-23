@@ -42,12 +42,13 @@ export default async function TeamMembersPage({
     <>
       <Flash ok={searchParams.ok} error={searchParams.error} />
       <PageHeader
-        title="Team Members"
-        description="Set up and maintain Global Online team members."
+        title="People"
+        description="Manage team members and department heads."
         action={<Button href="/hr/team-members/new">Add team member</Button>}
       />
 
       <Card>
+        <CardHeader title="Team members" description={`${members.length} total`} />
         <CardBody className="p-0">
           {members.length === 0 ? (
             <div className="p-5">
