@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   SUPPLIER_TASKS,
+  ADJUSTMENT_TASK,
   RATE_UNIT_LABELS,
   TASK_LABELS,
   type RateUnit,
@@ -25,38 +26,78 @@ export interface RosterPerson {
   rates: { id: string; descriptor: string; unit: RateUnit; amount: number; task: TaskType | null }[];
 }
 
-type Kind = "person" | "flat";
+type Kind = "person" | "adjustment";
+type Direction = "add" | "subtract";
 interface Row {
   key: string;
   kind: Kind;
-  supplier_member_id: string;
+  supplier_member_id: string; // person line: who did the work; adjustment: who it's for ("" = general)
   rate_id: string;
   rate_unit: RateUnit;
   rate_amount: number;
   rate_descriptor: string;
   sessions: string;
   hours: string;
-  amount: string; // flat lines
+  amount: string; // adjustment lines: positive magnitude (sign comes from `direction`)
+  direction: Direction; // adjustment lines only
   task: TaskType;
-  note: string;
+  note: string; // adjustment lines: the (required) description
 }
 
 let seq = 0;
 const newKey = () => `s-${seq++}-${Math.round(Math.random() * 1e6)}`;
 
-function toRow(it: InvoiceLineItem): Row {
-  const flat = it.rate_unit === "fixed";
+// Reconstruct an editor row from a saved line item. Adjustments are stored as
+// task 'adjustment'; older "misc" flat lines (no person, fixed unit) are also
+// treated as adjustments. For person lines we recover the rate_id by matching
+// the saved snapshot against the roster, since the rate_id column isn't
+// persisted (it's FK'd to individual rates) — without this, re-saving after a
+// reload would zero the rate.
+function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
+  const amt = Number(it.rate_amount ?? 0);
+  const fixed = it.rate_unit === "fixed";
+  const isAdjustment = it.task === ADJUSTMENT_TASK || (!it.supplier_member_id && fixed);
+
+  if (isAdjustment) {
+    return {
+      key: newKey(),
+      kind: "adjustment",
+      supplier_member_id: it.supplier_member_id ?? "",
+      rate_id: "",
+      rate_unit: "fixed",
+      rate_amount: amt,
+      rate_descriptor: it.rate_descriptor ?? "",
+      sessions: "0",
+      hours: "0",
+      amount: String(Math.abs(amt)),
+      direction: amt < 0 ? "subtract" : "add",
+      task: ADJUSTMENT_TASK,
+      note: it.note ?? "",
+    };
+  }
+
+  const person = it.supplier_member_id
+    ? roster.find((p) => p.id === it.supplier_member_id)
+    : undefined;
+  const match = person?.rates.find(
+    (r) =>
+      r.descriptor === (it.rate_descriptor ?? "") &&
+      r.unit === it.rate_unit &&
+      Number(r.amount) === amt
+  );
+
   return {
     key: newKey(),
-    kind: it.supplier_member_id && !flat ? "person" : flat && !it.supplier_member_id ? "flat" : it.supplier_member_id ? "person" : "flat",
+    kind: "person",
     supplier_member_id: it.supplier_member_id ?? "",
-    rate_id: "",
+    rate_id: match?.id ?? "",
     rate_unit: it.rate_unit,
-    rate_amount: Number(it.rate_amount ?? 0),
+    rate_amount: amt,
     rate_descriptor: it.rate_descriptor ?? "",
     sessions: String(it.sessions ?? 0),
     hours: String(it.hours ?? 0),
-    amount: flat ? String(it.rate_amount ?? 0) : "",
+    amount: "",
+    direction: "subtract",
     task: it.task,
     note: it.note ?? "",
   };
@@ -80,7 +121,9 @@ export function SupplierInvoiceEditor({
   const [shipTo, setShipTo] = useState(invoice.ship_to_address ?? "");
   const [notes, setNotes] = useState(invoice.notes ?? "");
   const [taxRate, setTaxRate] = useState(String(invoice.tax_rate ?? 0));
-  const [rows, setRows] = useState<Row[]>(initialItems.map(toRow));
+  const [rows, setRows] = useState<Row[]>(() =>
+    initialItems.map((it) => toRow(it, roster))
+  );
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,7 +135,10 @@ export function SupplierInvoiceEditor({
   }, [roster]);
 
   function rowTotal(r: Row): number {
-    if (r.kind === "flat") return Number(r.amount) || 0;
+    if (r.kind === "adjustment") {
+      const mag = Math.abs(Number(r.amount) || 0);
+      return r.direction === "subtract" ? -mag : mag;
+    }
     return computeLineTotal({
       rate_unit: r.rate_unit,
       rate_amount: r.rate_amount,
@@ -125,17 +171,18 @@ export function SupplierInvoiceEditor({
         sessions: "",
         hours: "",
         amount: "",
+        direction: "subtract",
         task: "teaching",
         note: "",
       },
     ]);
   }
-  function addFlatLine() {
+  function addAdjustmentLine() {
     setRows((prev) => [
       ...prev,
       {
         key: newKey(),
-        kind: "flat",
+        kind: "adjustment",
         supplier_member_id: "",
         rate_id: "",
         rate_unit: "fixed",
@@ -144,7 +191,8 @@ export function SupplierInvoiceEditor({
         sessions: "0",
         hours: "0",
         amount: "",
-        task: "misc_expenses",
+        direction: "subtract",
+        task: ADJUSTMENT_TASK,
         note: "",
       },
     ]);
@@ -174,19 +222,23 @@ export function SupplierInvoiceEditor({
 
   function buildItems(): SaveSupplierItem[] {
     return rows.map((r, i) => {
-      if (r.kind === "flat") {
+      if (r.kind === "adjustment") {
+        const mag = Math.abs(Number(r.amount) || 0);
+        const signed = r.direction === "subtract" ? -mag : mag;
+        const description = r.note.trim();
         return {
           centre: "MathVision",
-          task: r.task,
-          note: r.note.trim() || null,
+          task: ADJUSTMENT_TASK,
+          note: description || null,
           sessions: 0,
           hours: 0,
           rate_id: null,
-          rate_descriptor: r.note.trim() || TASK_LABELS[r.task],
+          rate_descriptor: description || "Adjustment",
           rate_unit: "fixed",
-          rate_amount: Number(r.amount) || 0,
+          rate_amount: signed,
           sort_order: i,
-          supplier_member_id: null,
+          // "For whom": a specific roster person, or null for a general adjustment.
+          supplier_member_id: r.supplier_member_id || null,
         };
       }
       return {
@@ -212,6 +264,14 @@ export function SupplierInvoiceEditor({
     const bad = rows.find((r) => r.kind === "person" && (!r.supplier_member_id || !r.rate_id));
     if (bad) {
       setError("Every person line needs a person and a rate selected.");
+      return false;
+    }
+    // adjustments must have a description and a non-zero amount
+    const badAdj = rows.find(
+      (r) => r.kind === "adjustment" && (!r.note.trim() || !(Number(r.amount) > 0))
+    );
+    if (badAdj) {
+      setError("Every adjustment needs a description and an amount greater than zero.");
       return false;
     }
     const cleanTax = Math.min(100, Math.max(0, Math.round((Number(taxRate) || 0) * 1000) / 1000));
@@ -264,14 +324,14 @@ export function SupplierInvoiceEditor({
       {noRoster && (
         <Alert tone="warning" title="No people configured">
           Your HR team hasn&apos;t added any people to your roster yet. You can still
-          add adjustment / misc lines below.
+          add adjustment lines below.
         </Alert>
       )}
 
       <Card>
         <CardHeader
           title={<span className="font-mono text-base tnum">{invoice.invoice_number}</span>}
-          description="Add a line per person, plus any adjustments or misc expenses."
+          description="Add a line per person, plus any adjustments (e.g. an unpaid day off)."
           action={<StatusPill status={invoice.status} />}
         />
         <CardBody className="grid gap-4 sm:grid-cols-2">
@@ -296,8 +356,8 @@ export function SupplierInvoiceEditor({
               <Button type="button" size="sm" variant="brand-soft" onClick={addPersonLine}>
                 + Person line
               </Button>
-              <Button type="button" size="sm" variant="neutral" onClick={addFlatLine}>
-                + Adjustment / misc
+              <Button type="button" size="sm" variant="neutral" onClick={addAdjustmentLine}>
+                + Adjustment
               </Button>
             </div>
           }
@@ -306,7 +366,7 @@ export function SupplierInvoiceEditor({
           {rows.length === 0 && (
             <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50/60 px-4 py-8 text-center text-sm text-ink-500">
               No lines yet. Add a <strong>person line</strong> or an{" "}
-              <strong>adjustment / misc</strong> line.
+              <strong>adjustment</strong>.
             </p>
           )}
 
@@ -413,45 +473,76 @@ export function SupplierInvoiceEditor({
                     </div>
                   </>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Field label="Task">
-                      <Select
-                        value={row.task}
-                        onChange={(e) => patch(row.key, { task: e.target.value as TaskType })}
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Description" required>
+                        <Input
+                          value={row.note}
+                          onChange={(e) => patch(row.key, { note: e.target.value })}
+                          placeholder="Unpaid day off"
+                        />
+                      </Field>
+                      <Field
+                        label="For whom"
+                        hint="A specific person, or general to the whole invoice."
                       >
-                        {SUPPLIER_TASKS.map((t) => (
-                          <option key={t} value={t}>
-                            {TASK_LABELS[t]}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Field label={`Amount (${currency})`} hint="Can be negative for a deduction.">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={row.amount}
-                        onChange={(e) => patch(row.key, { amount: e.target.value })}
-                      />
-                    </Field>
-                    <div>
-                      <Label>Line total</Label>
-                      <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
-                        {formatCurrency(total, currency)}
+                        <Select
+                          value={row.supplier_member_id}
+                          onChange={(e) =>
+                            patch(row.key, { supplier_member_id: e.target.value })
+                          }
+                        >
+                          <option value="">General (whole invoice)</option>
+                          {roster.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <Field label="Type">
+                        <Select
+                          value={row.direction}
+                          onChange={(e) =>
+                            patch(row.key, { direction: e.target.value as Direction })
+                          }
+                        >
+                          <option value="subtract">Subtraction (−)</option>
+                          <option value="add">Addition (+)</option>
+                        </Select>
+                      </Field>
+                      <Field label={`Amount (${currency})`} hint="A positive number.">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.amount}
+                          onChange={(e) => patch(row.key, { amount: e.target.value })}
+                        />
+                      </Field>
+                      <div>
+                        <Label>Line total</Label>
+                        <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
+                          {formatCurrency(total, currency)}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
 
-                <div className="mt-3">
-                  <Field label="Note">
-                    <Input
-                      value={row.note}
-                      onChange={(e) => patch(row.key, { note: e.target.value })}
-                      placeholder="Optional description"
-                    />
-                  </Field>
-                </div>
+                {row.kind === "person" && (
+                  <div className="mt-3">
+                    <Field label="Note">
+                      <Input
+                        value={row.note}
+                        onChange={(e) => patch(row.key, { note: e.target.value })}
+                        placeholder="Optional description"
+                      />
+                    </Field>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -72,9 +72,15 @@ export const SUPPLIER_TASKS = [
   "misc_expenses",
 ] as const;
 
+// "adjustment" is a special line kind on supplier invoices (a deduction or
+// addition, e.g. an unpaid day off), not a task users pick from the task
+// dropdown — so it's kept out of TASKS/SUPPLIER_TASKS but is a valid TaskType.
+export const ADJUSTMENT_TASK = "adjustment" as const;
+
 export type TaskType =
   | (typeof TASKS)[number]
-  | (typeof SUPPLIER_TASKS)[number];
+  | (typeof SUPPLIER_TASKS)[number]
+  | typeof ADJUSTMENT_TASK;
 
 export const TASK_LABELS: Record<TaskType, string> = {
   teaching: "Teaching",
@@ -85,6 +91,7 @@ export const TASK_LABELS: Record<TaskType, string> = {
   phone_ambassador: "Phone Ambassador",
   administrative_services: "Administrative Services",
   misc_expenses: "Misc. Expenses",
+  adjustment: "Adjustment",
 };
 
 /** When this task is chosen, session/time/rate inputs are driven by the fixed salary. */
