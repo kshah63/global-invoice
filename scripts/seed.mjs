@@ -142,7 +142,7 @@ async function ensureSupplierMember(supplierId, fields, rates) {
   let id;
   if (existing) {
     id = existing.id;
-    await admin.from("supplier_members").update({ name: fields.name }).eq("id", id);
+    await admin.from("supplier_members").update(fields).eq("id", id);
   } else {
     const { data, error } = await admin
       .from("supplier_members")
@@ -159,6 +159,32 @@ async function ensureSupplierMember(supplierId, fields, rates) {
     );
   }
   return id;
+}
+
+async function ensureMemberInvoice(meta, items) {
+  const { data: inv, error } = await admin
+    .from("supplier_member_invoices")
+    .upsert(
+      {
+        supplier_member_id: meta.memberId,
+        supplier_id: meta.supplierId,
+        period_year: meta.year,
+        period_month: meta.month,
+        status: meta.status,
+        display_name: meta.displayName,
+        currency: meta.currency,
+        notes: meta.notes ?? null,
+      },
+      { onConflict: "supplier_member_id,period_year,period_month" }
+    )
+    .select("id")
+    .single();
+  if (error) throw error;
+  await admin.from("supplier_member_invoice_items").delete().eq("member_invoice_id", inv.id);
+  await admin.from("supplier_member_invoice_items").insert(
+    items.map((it, i) => ({ ...it, member_invoice_id: inv.id, sort_order: i }))
+  );
+  return inv.id;
 }
 
 function statusTimestamps(status, y, m) {
@@ -419,9 +445,20 @@ async function main() {
     currency: "SGD",
     payment_details: "Bank: DBS ****9012",
   });
+  // Jane has her own login (she enters + submits her own work to the leader);
+  // Omar does not (the leader enters his lines).
+  const janeUser = await ensureUser("jane.tan@brightminds.demo", "Password123!", {
+    role: "supplier_member",
+    full_name: "Jane Tan",
+  });
   const jane = await ensureSupplierMember(
     bright,
-    { name: "Jane Tan", code: "3001" },
+    {
+      name: "Jane Tan",
+      code: "3001",
+      profile_id: janeUser.id,
+      email: "jane.tan@brightminds.demo",
+    },
     [
       { descriptor: "Weekday teaching", unit: "per_hour", amount: 50, task: "teaching" },
       { descriptor: "Paper marking", unit: "per_session", amount: 18, task: "paper_marking" },
@@ -431,6 +468,29 @@ async function main() {
     bright,
     { name: "Omar Ali", code: "3002" },
     [{ descriptor: "Consultancy", unit: "per_hour", amount: 80, task: "consultancy" }]
+  );
+
+  // Jane's own draft submission for July — she signs in to complete and send it.
+  const { data: janeRates } = await admin
+    .from("supplier_member_rates")
+    .select("id, descriptor")
+    .eq("supplier_member_id", jane);
+  const janeTeaching =
+    (janeRates ?? []).find((r) => r.descriptor === "Weekday teaching")?.id ?? null;
+  await ensureMemberInvoice(
+    {
+      memberId: jane,
+      supplierId: bright,
+      year: Y,
+      month: 7,
+      status: "draft",
+      displayName: "Jane Tan",
+      currency: "SGD",
+    },
+    [
+      { centre: "MathVision", task: "teaching", note: "Weekday classes", sessions: 0, hours: 18, rate_id: janeTeaching, rate_descriptor: "Weekday teaching", rate_unit: "per_hour", rate_amount: 50 },
+      { centre: "MathVision", task: "adjustment", note: "Unpaid day off", sessions: 0, hours: 0, rate_id: null, rate_descriptor: "Unpaid day off", rate_unit: "fixed", rate_amount: -40 },
+    ]
   );
   await ensureInvoice(
     {
@@ -481,6 +541,7 @@ async function main() {
   console.log(`  Team Member:     ${TM.email} / ${TM.password}`);
   console.log(`  Department Head: ${DH.email} / ${DH.password}`);
   console.log(`  Supplier:        ${SUP.email} / ${SUP.password}  (or supplier code BRIGHT)`);
+  console.log(`  Supplier member: jane.tan@brightminds.demo / Password123!`);
   console.log("  (extra teachers: teacher2@mathvision.demo, teacher3@mathvision.demo)\n");
 }
 

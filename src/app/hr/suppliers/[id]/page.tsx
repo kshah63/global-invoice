@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 import { Flash } from "@/components/Flash";
 import { SupplierDetailsForm } from "@/components/hr/SupplierDetailsForm";
 import { RosterEditor } from "@/components/hr/RosterEditor";
+import { MemberLoginsCard } from "@/components/hr/MemberLoginsCard";
 import { SupplierPasswordCard } from "@/components/hr/SupplierPasswordCard";
 import { deleteSupplier } from "@/actions/suppliers";
 import type { RateUnit, TaskType } from "@/lib/constants";
@@ -40,22 +41,31 @@ export default async function EditSupplier({
     .eq("supplier_id", supplier.id)
     .order("sort_order");
 
-  const people = ((memberRows as (SupplierMember & { rates: SupplierMemberRate[] })[]) ?? []).map(
-    (m) => ({
-      id: m.id,
-      name: m.name,
-      code: m.code,
-      rates: (m.rates ?? [])
-        .slice()
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((r) => ({
-          descriptor: r.descriptor,
-          unit: r.unit as RateUnit,
-          amount: Number(r.amount),
-          task: (r.task ?? null) as TaskType | null,
-        })),
-    })
-  );
+  const memberList =
+    (memberRows as (SupplierMember & { rates: SupplierMemberRate[] })[]) ?? [];
+
+  const people = memberList.map((m) => ({
+    id: m.id,
+    name: m.name,
+    code: m.code,
+    rates: (m.rates ?? [])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((r) => ({
+        descriptor: r.descriptor,
+        unit: r.unit as RateUnit,
+        amount: Number(r.amount),
+        task: (r.task ?? null) as TaskType | null,
+      })),
+  }));
+
+  const loginRows = memberList.map((m) => ({
+    id: m.id,
+    name: m.name,
+    code: m.code,
+    email: m.email,
+    hasLogin: !!m.profile_id,
+  }));
 
   return (
     <>
@@ -85,6 +95,8 @@ export default async function EditSupplier({
           currency={supplier.currency}
           initialPeople={people}
         />
+
+        <MemberLoginsCard members={loginRows} />
 
         <SupplierPasswordCard supplierId={supplier.id} />
 

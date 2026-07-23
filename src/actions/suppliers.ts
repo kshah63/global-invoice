@@ -253,6 +253,123 @@ export async function resetSupplierPassword(
   return {};
 }
 
+// --- Roster member logins -------------------------------------------------
+
+export async function createMemberLogin(
+  memberId: string,
+  input: { email: string; password?: string; sendWelcomeEmail?: boolean }
+): Promise<{ error?: string; message?: string }> {
+  await ensureHr();
+  const email = input.email.trim();
+  if (!email.includes("@")) return { error: "Enter a valid email address." };
+
+  const sendEmail = input.sendWelcomeEmail !== false;
+  let password = (input.password ?? "").trim();
+  if (!sendEmail && password.length < 8) {
+    return {
+      error:
+        "Set an initial password of at least 8 characters, or enable the welcome email.",
+    };
+  }
+  if (!password) password = randomBytes(12).toString("base64url");
+
+  const supabase = createClient();
+  const { data: member } = await supabase
+    .from("supplier_members")
+    .select("id, name, profile_id, supplier_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (!member) return { error: "Member not found." };
+  if (member.profile_id) return { error: "This member already has a login." };
+
+  const admin = createAdminClient();
+  const { data: created, error: cErr } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: "supplier_member", full_name: member.name },
+    app_metadata: { role: "supplier_member" },
+  });
+  if (cErr || !created?.user) {
+    return { error: apiKeyError(cErr?.message ?? "Could not create the login account.") };
+  }
+  const profileId = created.user.id;
+
+  const { error } = await supabase
+    .from("supplier_members")
+    .update({ profile_id: profileId, email })
+    .eq("id", memberId);
+  if (error) {
+    await admin.auth.admin.deleteUser(profileId);
+    return { error: error.message };
+  }
+
+  let message = "Login created.";
+  if (sendEmail) {
+    try {
+      const h = headers();
+      const host = h.get("x-forwarded-host") ?? h.get("host");
+      const proto = h.get("x-forwarded-proto") ?? "https";
+      if (host) {
+        await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${proto}://${host}/auth/callback?next=/reset-password`,
+        });
+        message = `Login created — a set-password email was sent to ${email}.`;
+      }
+    } catch {
+      /* best effort */
+    }
+  }
+
+  revalidatePath(`/hr/suppliers/${member.supplier_id}`);
+  return { message };
+}
+
+export async function resetMemberPassword(
+  memberId: string,
+  newPassword: string
+): Promise<{ error?: string }> {
+  await ensureHr();
+  if (!newPassword || newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  const supabase = createClient();
+  const { data: member } = await supabase
+    .from("supplier_members")
+    .select("profile_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (!member?.profile_id) return { error: "This member has no login account." };
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(member.profile_id, {
+    password: newPassword,
+  });
+  if (error) return { error: error.message };
+  return {};
+}
+
+export async function removeMemberLogin(
+  memberId: string
+): Promise<{ error?: string }> {
+  await ensureHr();
+  const supabase = createClient();
+  const { data: member } = await supabase
+    .from("supplier_members")
+    .select("profile_id, supplier_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (!member?.profile_id) return { error: "This member has no login account." };
+
+  await supabase
+    .from("supplier_members")
+    .update({ profile_id: null })
+    .eq("id", memberId);
+  const admin = createAdminClient();
+  await admin.auth.admin.deleteUser(member.profile_id);
+  revalidatePath(`/hr/suppliers/${member.supplier_id}`);
+  return {};
+}
+
 // --- Delete ---------------------------------------------------------------
 
 export async function deleteSupplier(formData: FormData) {

@@ -14,12 +14,17 @@ import {
   SupplierInvoiceEditor,
   type RosterPerson,
 } from "@/components/invoice/SupplierInvoiceEditor";
+import {
+  MemberSubmissionsPanel,
+  type MemberSubmissionRow,
+} from "@/components/invoice/MemberSubmissionsPanel";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { deleteInvoice } from "@/actions/invoices";
 import type {
   Invoice,
   InvoiceLineItem,
   SupplierMember,
+  SupplierMemberInvoice,
   SupplierMemberRate,
   TeamMember,
   TeamMemberRate,
@@ -63,13 +68,22 @@ export default async function TeamInvoiceDetail({
 
   let rates: TeamMemberRate[] = [];
   let roster: RosterPerson[] = [];
+  let submissions: MemberSubmissionRow[] = [];
   if (isSupplier) {
-    const { data: rosterRows } = await supabase
-      .from("supplier_members")
-      .select("id, name, sort_order, rates:supplier_member_rates(*)")
-      .eq("supplier_id", invoice.team_member_id)
-      .eq("active", true)
-      .order("sort_order");
+    const [{ data: rosterRows }, { data: subRows }] = await Promise.all([
+      supabase
+        .from("supplier_members")
+        .select("id, name, sort_order, rates:supplier_member_rates(*)")
+        .eq("supplier_id", invoice.team_member_id)
+        .eq("active", true)
+        .order("sort_order"),
+      supabase
+        .from("supplier_member_invoices")
+        .select("*, member:supplier_members(name)")
+        .eq("supplier_id", invoice.team_member_id)
+        .eq("period_year", invoice.period_year)
+        .eq("period_month", invoice.period_month),
+    ]);
     roster = (
       (rosterRows as (Pick<SupplierMember, "id" | "name"> & {
         rates: SupplierMemberRate[];
@@ -88,6 +102,18 @@ export default async function TeamInvoiceDetail({
           task: (r.task ?? null) as TaskType | null,
         })),
     }));
+    submissions = (
+      (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? []
+    )
+      .map((s) => ({
+        id: s.id,
+        memberName: s.member?.name ?? s.display_name,
+        status: s.status,
+        total: Number(s.total),
+        currency: s.currency,
+        returnNote: s.return_note,
+      }))
+      .sort((a, b) => a.memberName.localeCompare(b.memberName));
   } else {
     const { data: rateRows } = await supabase
       .from("team_member_rates")
@@ -122,12 +148,19 @@ export default async function TeamInvoiceDetail({
       {editable ? (
         <>
           {isSupplier ? (
-            <SupplierInvoiceEditor
-              invoice={invoice}
-              initialItems={items}
-              roster={roster}
-              supplierName={tm?.name ?? invoice.display_name}
-            />
+            <>
+              <MemberSubmissionsPanel
+                consolidatedInvoiceId={invoice.id}
+                submissions={submissions}
+              />
+              <SupplierInvoiceEditor
+                invoice={invoice}
+                initialItems={items}
+                roster={roster}
+                supplierName={tm?.name ?? invoice.display_name}
+                submissionCount={submissions.filter((s) => s.status === "submitted").length}
+              />
+            </>
           ) : (
             <InvoiceEditor
               invoice={invoice}

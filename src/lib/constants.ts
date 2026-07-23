@@ -3,13 +3,19 @@
  * the UI and validated against the database enums in the SQL migrations.
  */
 
-export const ROLES = ["hr", "team_member", "department_head"] as const;
+export const ROLES = [
+  "hr",
+  "team_member",
+  "department_head",
+  "supplier_member",
+] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   hr: "HR",
   team_member: "Team Member",
   department_head: "Department Head",
+  supplier_member: "Supplier Member",
 };
 
 /** Home route per role — used for post-login routing. */
@@ -17,6 +23,7 @@ export const ROLE_HOME: Record<Role, string> = {
   hr: "/hr",
   team_member: "/team",
   department_head: "/dept",
+  supplier_member: "/member",
 };
 
 // --- Subjects -------------------------------------------------------------
@@ -165,6 +172,42 @@ export const STATUS_META: Record<
     label: "Paid",
     badge: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     dot: "bg-emerald-500",
+  },
+};
+
+// --- Member invoice status (roster member -> supplier leader) --------------
+
+export const MEMBER_INVOICE_STATUSES = [
+  "draft",
+  "submitted",
+  "returned",
+  "locked",
+] as const;
+export type MemberInvoiceStatus = (typeof MEMBER_INVOICE_STATUSES)[number];
+
+export const MEMBER_STATUS_META: Record<
+  MemberInvoiceStatus,
+  { label: string; badge: string; dot: string }
+> = {
+  draft: {
+    label: "Draft",
+    badge: "bg-gold-50 text-gold-700 ring-gold-200",
+    dot: "bg-gold-400",
+  },
+  submitted: {
+    label: "Sent to leader",
+    badge: "bg-brand-50 text-brand-700 ring-brand-200",
+    dot: "bg-brand-500",
+  },
+  returned: {
+    label: "Returned",
+    badge: "bg-red-50 text-red-700 ring-red-200",
+    dot: "bg-red-400",
+  },
+  locked: {
+    label: "Locked",
+    badge: "bg-brand-100 text-brand-800 ring-brand-300",
+    dot: "bg-brand-700",
   },
 };
 

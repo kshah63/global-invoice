@@ -2,6 +2,7 @@ import type {
   Centre,
   Currency,
   InvoiceStatus,
+  MemberInvoiceStatus,
   MemberType,
   RateUnit,
   Role,
@@ -119,6 +120,7 @@ export interface InvoiceLineItem {
   sort_order: number;
   supplier_member_id: string | null;
   worked_by_name: string | null;
+  source_member_invoice_id: string | null; // set when imported from a member invoice
 }
 
 // --- Suppliers ------------------------------------------------------------
@@ -130,6 +132,9 @@ export interface SupplierMember {
   code: string; // 4-digit
   active: boolean;
   sort_order: number;
+  profile_id: string | null; // login account, if HR created one
+  email: string | null;
+  payment_details: string | null;
   created_at: string;
 }
 
@@ -146,6 +151,44 @@ export interface SupplierMemberRate {
 
 export interface SupplierMemberWithRates extends SupplierMember {
   rates: SupplierMemberRate[];
+}
+
+// A roster member's own monthly invoice to their supplier (Tier 1).
+export interface SupplierMemberInvoice {
+  id: string;
+  supplier_member_id: string;
+  supplier_id: string;
+  period_year: number;
+  period_month: number;
+  status: MemberInvoiceStatus;
+  display_name: string;
+  notes: string | null;
+  return_note: string | null;
+  currency: Currency;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  submitted_at: string | null;
+  returned_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplierMemberInvoiceItem {
+  id: string;
+  member_invoice_id: string;
+  centre: Centre;
+  task: TaskType;
+  note: string | null;
+  sessions: number;
+  hours: number;
+  rate_id: string | null;
+  rate_descriptor: string | null;
+  rate_unit: RateUnit;
+  rate_amount: number;
+  line_total: number;
+  sort_order: number;
 }
 
 export interface DeptHeadCheck {

@@ -155,6 +155,7 @@ export interface SaveSupplierItem {
   rate_amount: number; // typed amount for "fixed" lines
   sort_order: number;
   supplier_member_id: string | null;
+  source_member_invoice_id?: string | null; // set for lines imported from a member invoice
 }
 
 export interface SaveSupplierInvoiceInput {

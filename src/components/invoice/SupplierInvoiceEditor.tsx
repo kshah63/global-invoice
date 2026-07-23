@@ -14,6 +14,7 @@ import { computeInvoiceTotals, computeLineTotal } from "@/lib/invoice";
 import { formatCurrency } from "@/lib/format";
 import type { Invoice, InvoiceLineItem } from "@/lib/types";
 import { saveSupplierInvoice, submitInvoiceById, type SaveSupplierItem } from "@/actions/invoices";
+import { pullMemberInvoices } from "@/actions/member-invoices";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
@@ -42,6 +43,7 @@ interface Row {
   direction: Direction; // adjustment lines only
   task: TaskType;
   note: string; // adjustment lines: the (required) description
+  source_member_invoice_id: string; // set when imported from a member submission ("" otherwise)
 }
 
 let seq = 0;
@@ -73,6 +75,7 @@ function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
       direction: amt < 0 ? "subtract" : "add",
       task: ADJUSTMENT_TASK,
       note: it.note ?? "",
+      source_member_invoice_id: it.source_member_invoice_id ?? "",
     };
   }
 
@@ -100,6 +103,7 @@ function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
     direction: "subtract",
     task: it.task,
     note: it.note ?? "",
+    source_member_invoice_id: it.source_member_invoice_id ?? "",
   };
 }
 
@@ -108,11 +112,13 @@ export function SupplierInvoiceEditor({
   initialItems,
   roster,
   supplierName,
+  submissionCount = 0,
 }: {
   invoice: Invoice;
   initialItems: InvoiceLineItem[];
   roster: RosterPerson[];
   supplierName: string;
+  submissionCount?: number;
 }) {
   const router = useRouter();
   const currency = invoice.currency;
@@ -124,7 +130,7 @@ export function SupplierInvoiceEditor({
   const [rows, setRows] = useState<Row[]>(() =>
     initialItems.map((it) => toRow(it, roster))
   );
-  const [busy, setBusy] = useState<null | "save" | "submit">(null);
+  const [busy, setBusy] = useState<null | "save" | "submit" | "pull">(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -174,6 +180,7 @@ export function SupplierInvoiceEditor({
         direction: "subtract",
         task: "teaching",
         note: "",
+        source_member_invoice_id: "",
       },
     ]);
   }
@@ -194,6 +201,7 @@ export function SupplierInvoiceEditor({
         direction: "subtract",
         task: ADJUSTMENT_TASK,
         note: "",
+        source_member_invoice_id: "",
       },
     ]);
   }
@@ -239,6 +247,7 @@ export function SupplierInvoiceEditor({
           sort_order: i,
           // "For whom": a specific roster person, or null for a general adjustment.
           supplier_member_id: r.supplier_member_id || null,
+          source_member_invoice_id: r.source_member_invoice_id || null,
         };
       }
       return {
@@ -253,6 +262,7 @@ export function SupplierInvoiceEditor({
         rate_amount: r.rate_amount || 0,
         sort_order: i,
         supplier_member_id: r.supplier_member_id || null,
+        source_member_invoice_id: r.source_member_invoice_id || null,
       };
     });
   }
@@ -295,6 +305,21 @@ export function SupplierInvoiceEditor({
     if (await doSave()) {
       setNotice("Draft saved.");
       router.refresh();
+    }
+    setBusy(null);
+  }
+  async function onPull() {
+    setBusy("pull");
+    // Save current edits first so pulling doesn't discard them, then import.
+    if (await doSave()) {
+      const res = await pullMemberInvoices(invoice.id);
+      if (res.error) setError(res.error);
+      else {
+        setNotice(
+          `Pulled in ${res.count ?? 0} member submission${res.count === 1 ? "" : "s"}.`
+        );
+        router.refresh();
+      }
     }
     setBusy(null);
   }
@@ -352,7 +377,18 @@ export function SupplierInvoiceEditor({
         <CardHeader
           title="Line items"
           action={
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {submissionCount > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="neutral"
+                  loading={busy === "pull"}
+                  onClick={onPull}
+                >
+                  Pull in {submissionCount} submission{submissionCount === 1 ? "" : "s"}
+                </Button>
+              )}
               <Button type="button" size="sm" variant="brand-soft" onClick={addPersonLine}>
                 + Person line
               </Button>
