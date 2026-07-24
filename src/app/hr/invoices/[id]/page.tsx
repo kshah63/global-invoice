@@ -13,6 +13,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { PayoutFxCard } from "@/components/hr/PayoutFxCard";
+import { InvoiceMessageCard } from "@/components/hr/InvoiceMessageCard";
 import {
   MemberSubmissionsPanel,
   type MemberSubmissionRow,
@@ -291,6 +292,14 @@ export default async function HrInvoiceDetail({
             </div>
           </CardBody>
         </Card>
+      )}
+
+      {tm?.profile_id && (
+        <InvoiceMessageCard
+          participantProfileId={tm.profile_id}
+          participantName={tm.name}
+          invoiceNumber={invoice.invoice_number}
+        />
       )}
 
       {memberSubs.length > 0 && (

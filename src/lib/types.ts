@@ -252,6 +252,28 @@ export interface Message {
   created_at: string;
 }
 
+// --- Direct messages (1:1 HR <-> person) ----------------------------------
+
+export interface Conversation {
+  id: string;
+  participant_id: string;
+  last_message_at: string;
+  last_message_from_hr: boolean;
+  last_message_preview: string | null;
+  hr_last_read_at: string | null;
+  participant_last_read_at: string | null;
+  created_at: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  from_hr: boolean;
+  body: string;
+  created_at: string;
+}
+
 // --- Composite view models ------------------------------------------------
 
 export interface TeamMemberWithRates extends TeamMember {

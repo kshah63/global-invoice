@@ -9,6 +9,7 @@ export interface NavItem {
   href: string;
   label: string;
   exact?: boolean;
+  badge?: boolean;
 }
 
 export function AppShell({
