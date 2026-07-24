@@ -22,6 +22,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 import { StatusPill } from "@/components/ui/Badge";
+import { PayoutFx } from "@/components/PayoutFx";
+import type { Currency } from "@/lib/constants";
 
 type Direction = "add" | "subtract";
 interface Row {
@@ -64,11 +66,15 @@ export function InvoiceEditor({
   initialItems,
   rates,
   teamMember,
+  paymentCurrency,
+  fxRate,
 }: {
   invoice: Invoice;
   initialItems: InvoiceLineItem[];
   rates: TeamMemberRate[];
   teamMember: { name: string; fixed_salary: number | null };
+  paymentCurrency?: Currency | null;
+  fxRate?: number | null;
 }) {
   const router = useRouter();
   const currency = invoice.currency;
@@ -615,6 +621,14 @@ export function InvoiceEditor({
                   {formatCurrency(totals.total, currency)}
                 </span>
               </div>
+              <PayoutFx
+                total={totals.total}
+                rateCurrency={currency}
+                paymentCurrency={paymentCurrency ?? null}
+                fxRate={fxRate ?? null}
+                actualRate={invoice.fx_rate}
+                actualDate={invoice.fx_rate_date}
+              />
             </div>
           </div>
         </CardBody>

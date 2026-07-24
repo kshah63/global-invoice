@@ -3,9 +3,11 @@ import {
   TASK_LABELS,
   TAX_DECLARATION,
   periodLabel,
+  type Currency,
 } from "@/lib/constants";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { StatusPill } from "@/components/ui/Badge";
+import { PayoutFx } from "@/components/PayoutFx";
 import type { Invoice, InvoiceLineItem, TeamMember } from "@/lib/types";
 
 function Party({
@@ -32,6 +34,8 @@ export function InvoiceDocument({
   invoice,
   items,
   teamMember,
+  paymentCurrency,
+  fxRate,
 }: {
   invoice: Invoice;
   items: InvoiceLineItem[];
@@ -39,6 +43,8 @@ export function InvoiceDocument({
     TeamMember,
     "name" | "employee_id" | "email" | "whatsapp_number" | "payment_details"
   > | null;
+  paymentCurrency?: Currency | null;
+  fxRate?: number | null;
 }) {
   const company = invoice.company_snapshot;
   const currency = invoice.currency;
@@ -201,6 +207,18 @@ export function InvoiceDocument({
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <PayoutFx
+          total={invoice.total}
+          rateCurrency={currency}
+          paymentCurrency={paymentCurrency ?? null}
+          fxRate={fxRate ?? null}
+          actualRate={invoice.fx_rate}
+          actualDate={invoice.fx_rate_date}
+          className="w-full max-w-xs"
+        />
       </div>
 
       {/* Notes */}

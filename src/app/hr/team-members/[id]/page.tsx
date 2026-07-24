@@ -65,6 +65,7 @@ export default async function EditTeamMember({
           head_of_department: tm.head_of_department,
           payment_details: tm.payment_details,
           currency: tm.currency,
+          payment_currency: tm.payment_currency,
           fixed_salary: tm.fixed_salary,
           subjects: tm.subjects,
           rates: rates.map((r) => ({

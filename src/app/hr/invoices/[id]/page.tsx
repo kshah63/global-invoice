@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { hrActionsFor } from "@/lib/invoice";
-import { TASK_LABELS, periodLabel, type TaskType } from "@/lib/constants";
+import { getFxRate } from "@/lib/fx";
+import { TASK_LABELS, periodLabel, type Currency, type TaskType } from "@/lib/constants";
 import { formatNumber } from "@/lib/format";
 import { Flash } from "@/components/Flash";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +12,7 @@ import { StatusPill } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
+import { PayoutFxCard } from "@/components/hr/PayoutFxCard";
 import { hrInvoiceTransition } from "@/actions/invoices";
 import type {
   DeptHeadCheck,
@@ -107,6 +109,12 @@ export default async function HrInvoiceDetail({
   );
 
   const actions = hrActionsFor(invoice.status);
+
+  // Payout FX (individuals paid in another currency).
+  const rateCurrency = invoice.currency as Currency;
+  const paymentCurrency = (tm?.payment_currency ?? null) as Currency | null;
+  const showFx = !!paymentCurrency && paymentCurrency !== rateCurrency;
+  const fxRate = showFx ? await getFxRate(rateCurrency, paymentCurrency!) : null;
 
   return (
     <>
@@ -239,7 +247,25 @@ export default async function HrInvoiceDetail({
         </Card>
       )}
 
-      <InvoiceDocument invoice={invoice} items={items} teamMember={tm} />
+      {showFx && paymentCurrency && (
+        <PayoutFxCard
+          invoiceId={invoice.id}
+          total={invoice.total}
+          rateCurrency={rateCurrency}
+          paymentCurrency={paymentCurrency}
+          indicativeRate={fxRate}
+          initialRate={invoice.fx_rate}
+          initialDate={invoice.fx_rate_date}
+        />
+      )}
+
+      <InvoiceDocument
+        invoice={invoice}
+        items={items}
+        teamMember={tm}
+        paymentCurrency={paymentCurrency}
+        fxRate={fxRate}
+      />
     </>
   );
 }

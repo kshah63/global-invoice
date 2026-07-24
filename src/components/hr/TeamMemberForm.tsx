@@ -65,6 +65,9 @@ export function TeamMemberForm({
     initial?.payment_details ?? ""
   );
   const [currency, setCurrency] = useState<Currency>(initial?.currency ?? "SGD");
+  const [paymentCurrency, setPaymentCurrency] = useState<Currency | "">(
+    initial?.payment_currency ?? ""
+  );
   const [fixedSalary, setFixedSalary] = useState(
     initial?.fixed_salary != null ? String(initial.fixed_salary) : ""
   );
@@ -110,6 +113,7 @@ export function TeamMemberForm({
       head_of_department: hod.trim() || null,
       payment_details: paymentDetails.trim() || null,
       currency,
+      payment_currency: paymentCurrency || null,
       fixed_salary: fixedSalary.trim() ? Number(fixedSalary) : null,
       subjects,
       rates: rates.map((r, i) => ({
@@ -246,12 +250,25 @@ export function TeamMemberForm({
         />
         <CardBody className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Currency" required>
+            <Field label="Rate currency" required hint="The currency their rates/salary are set in.">
               <Select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as Currency)}
               >
                 {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {CURRENCY_META[c].label} ({c})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Paid in" hint={`Leave as “Same as ${currency}” unless they're paid in another currency.`}>
+              <Select
+                value={paymentCurrency}
+                onChange={(e) => setPaymentCurrency(e.target.value as Currency | "")}
+              >
+                <option value="">Same as {currency}</option>
+                {CURRENCIES.filter((c) => c !== currency).map((c) => (
                   <option key={c} value={c}>
                     {CURRENCY_META[c].label} ({c})
                   </option>
