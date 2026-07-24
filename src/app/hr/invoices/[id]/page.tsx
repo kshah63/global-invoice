@@ -13,6 +13,10 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { PayoutFxCard } from "@/components/hr/PayoutFxCard";
+import {
+  MemberSubmissionsPanel,
+  type MemberSubmissionRow,
+} from "@/components/invoice/MemberSubmissionsPanel";
 import { hrInvoiceTransition } from "@/actions/invoices";
 import type {
   DeptHeadCheck,
@@ -20,6 +24,7 @@ import type {
   Invoice,
   InvoiceLineItem,
   Profile,
+  SupplierMemberInvoice,
   TeamMember,
 } from "@/lib/types";
 
@@ -73,6 +78,47 @@ export default async function HrInvoiceDetail({
   const items = (itemsRows as InvoiceLineItem[]) ?? [];
   const tm = tmRow as TeamMember | null;
   const checks = (checkRows as CheckWithItems[]) ?? [];
+
+  // For a supplier's consolidated invoice, HR can also see (and step into) the
+  // member submissions + their payout FX.
+  let memberSubs: MemberSubmissionRow[] = [];
+  if (tm?.member_type === "supplier") {
+    const { data: subRows } = await supabase
+      .from("supplier_member_invoices")
+      .select("*, member:supplier_members(name)")
+      .eq("supplier_id", invoice.team_member_id)
+      .eq("period_year", invoice.period_year)
+      .eq("period_month", invoice.period_month);
+    const subList =
+      (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
+    const baseCcy = invoice.currency as Currency;
+    const payCcys = Array.from(
+      new Set(
+        subList
+          .map((s) => s.payment_currency)
+          .filter((c): c is Currency => !!c && c !== baseCcy)
+      )
+    );
+    const rateMap = new Map<Currency, number | null>();
+    await Promise.all(payCcys.map(async (c) => rateMap.set(c, await getFxRate(baseCcy, c))));
+    memberSubs = subList
+      .map((s) => ({
+        id: s.id,
+        memberName: s.member?.name ?? s.display_name,
+        status: s.status,
+        total: Number(s.total),
+        currency: s.currency as Currency,
+        returnNote: s.return_note,
+        paymentCurrency: (s.payment_currency ?? null) as Currency | null,
+        indicativeRate:
+          s.payment_currency && s.payment_currency !== s.currency
+            ? rateMap.get(s.payment_currency as Currency) ?? null
+            : null,
+        fxRate: s.fx_rate != null ? Number(s.fx_rate) : null,
+        fxRateDate: s.fx_rate_date,
+      }))
+      .sort((a, b) => a.memberName.localeCompare(b.memberName));
+  }
 
   // Author names for the checks
   const authorIds = Array.from(new Set(checks.map((c) => c.created_by)));
@@ -245,6 +291,10 @@ export default async function HrInvoiceDetail({
             </div>
           </CardBody>
         </Card>
+      )}
+
+      {memberSubs.length > 0 && (
+        <MemberSubmissionsPanel submissions={memberSubs} canManageFx />
       )}
 
       {showFx && paymentCurrency && (

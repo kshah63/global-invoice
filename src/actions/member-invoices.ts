@@ -179,3 +179,21 @@ export async function returnMemberInvoice(
   }
   return {};
 }
+
+// Leader (or HR) records the actual payout FX rate + transfer date.
+export async function recordMemberInvoiceFx(
+  memberInvoiceId: string,
+  rate: number | null,
+  date: string | null,
+  refreshPath?: string
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("record_member_invoice_fx", {
+    p_invoice: memberInvoiceId,
+    p_rate: rate,
+    p_date: date || null,
+  });
+  if (error) return { error: error.message };
+  if (refreshPath) revalidatePath(refreshPath);
+  return {};
+}

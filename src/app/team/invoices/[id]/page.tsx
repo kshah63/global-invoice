@@ -108,16 +108,36 @@ export default async function TeamInvoiceDetail({
             },
       ],
     }));
-    submissions = (
-      (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? []
-    )
+    const subList =
+      (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
+    // Indicative rates for the distinct payout currencies in play.
+    const baseCcy = invoice.currency as Currency;
+    const payCcys = Array.from(
+      new Set(
+        subList
+          .map((s) => s.payment_currency)
+          .filter((c): c is Currency => !!c && c !== baseCcy)
+      )
+    );
+    const rateMap = new Map<Currency, number | null>();
+    await Promise.all(
+      payCcys.map(async (c) => rateMap.set(c, await getFxRate(baseCcy, c)))
+    );
+    submissions = subList
       .map((s) => ({
         id: s.id,
         memberName: s.member?.name ?? s.display_name,
         status: s.status,
         total: Number(s.total),
-        currency: s.currency,
+        currency: s.currency as Currency,
         returnNote: s.return_note,
+        paymentCurrency: (s.payment_currency ?? null) as Currency | null,
+        indicativeRate:
+          s.payment_currency && s.payment_currency !== s.currency
+            ? rateMap.get(s.payment_currency as Currency) ?? null
+            : null,
+        fxRate: s.fx_rate != null ? Number(s.fx_rate) : null,
+        fxRateDate: s.fx_rate_date,
       }))
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   } else {
