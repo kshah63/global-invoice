@@ -80,7 +80,7 @@ export default async function EditSupplier({
           id={supplier.id}
           initial={{
             name: supplier.name,
-            email: supplier.email,
+            email: supplier.email ?? "",
             supplier_code: supplier.supplier_code ?? "",
             currency: supplier.currency,
             payment_details: supplier.payment_details,

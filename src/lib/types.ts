@@ -35,7 +35,7 @@ export interface TeamMember {
   invoice_display_name: string | null;
   use_hr_name: boolean;
   whatsapp_number: string | null;
-  email: string;
+  email: string | null;
   employee_id: string | null; // 4-digit code (individuals); null for suppliers
   date_joined: string | null;
   nationality: string | null;

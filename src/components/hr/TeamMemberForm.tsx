@@ -104,7 +104,7 @@ export function TeamMemberForm({
   function buildInput(): TeamMemberInput {
     return {
       name: name.trim(),
-      email: email.trim(),
+      email: email.trim() || null,
       employee_id: employeeId.trim(),
       whatsapp_number: whatsapp.trim() || null,
       date_joined: dateJoined || null,
@@ -134,9 +134,12 @@ export function TeamMemberForm({
       setError("Employee ID must be a 4-digit code.");
       return;
     }
-    if (mode === "create" && !sendWelcomeEmail && password.length < 8) {
+    const willEmail = email.trim().includes("@") && sendWelcomeEmail;
+    if (mode === "create" && !willEmail && password.length < 8) {
       setError(
-        "Set an initial password of at least 8 characters, or enable the welcome email."
+        email.trim().includes("@")
+          ? "Set an initial password of at least 8 characters, or enable the welcome email."
+          : "With no email, set an initial password of at least 8 characters."
       );
       return;
     }
@@ -188,15 +191,22 @@ export function TeamMemberForm({
           <Field label="Full name" required>
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
-          <Field label="Email" required hint={mode === "edit" ? "Changing this does not change their login email." : "Becomes their login."}>
+          <Field
+            label="Email (optional)"
+            hint={
+              mode === "edit"
+                ? "For emailing invoices. Changing it doesn't change their login."
+                : "Optional — they sign in by ID. Add one only for a set-password email / invoices."
+            }
+          >
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
+              placeholder="Leave blank — they log in by ID"
             />
           </Field>
-          <Field label="Employee ID (4 digits)" required hint="Used in the invoice number.">
+          <Field label="Employee ID (4 digits)" required hint="Their login and the invoice number.">
             <Input
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
@@ -381,30 +391,41 @@ export function TeamMemberForm({
             description="How this team member first gets into their account."
           />
           <CardBody className="space-y-4">
-            <label className="flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-sm">
-              <input
-                type="checkbox"
-                checked={sendWelcomeEmail}
-                onChange={(e) => setSendWelcomeEmail(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-brand-600"
-              />
-              <span>
-                <span className="font-medium text-ink-800">
-                  Email them a link to set their own password
+            {email.trim().includes("@") ? (
+              <label className="flex items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={sendWelcomeEmail}
+                  onChange={(e) => setSendWelcomeEmail(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-brand-600"
+                />
+                <span>
+                  <span className="font-medium text-ink-800">
+                    Email them a link to set their own password
+                  </span>
+                  <span className="mt-0.5 block text-ink-500">
+                    Recommended — no need to share a password manually. They&apos;ll
+                    log in with their employee ID afterwards.
+                  </span>
                 </span>
-                <span className="mt-0.5 block text-ink-500">
-                  Recommended — no need to share a password manually. They&apos;ll
-                  log in with their employee ID afterwards.
-                </span>
-              </span>
-            </label>
+              </label>
+            ) : (
+              <p className="rounded-xl border border-ink-200 bg-ink-50/40 px-3 py-2.5 text-sm text-ink-600">
+                No email — they&apos;ll log in with their employee ID. Set an initial
+                password below and share it securely.
+              </p>
+            )}
 
             <div className="flex flex-wrap items-end gap-3">
               <Field
-                label={sendWelcomeEmail ? "Initial password (optional)" : "Initial password"}
+                label={
+                  email.trim().includes("@") && sendWelcomeEmail
+                    ? "Initial password (optional)"
+                    : "Initial password"
+                }
                 className="flex-1"
                 hint={
-                  sendWelcomeEmail
+                  email.trim().includes("@") && sendWelcomeEmail
                     ? "Leave blank to auto-generate — they set their own via the email."
                     : "Share this with them securely (e.g. via WhatsApp)."
                 }

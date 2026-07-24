@@ -19,7 +19,7 @@ export interface RateInput {
 
 export interface TeamMemberInput {
   name: string;
-  email: string;
+  email: string | null; // optional — they sign in by employee ID
   employee_id: string;
   whatsapp_number: string | null;
   date_joined: string | null;
@@ -61,12 +61,19 @@ export async function createTeamMember(
   await ensureHr();
   const admin = createAdminClient();
 
-  const sendEmail = input.sendWelcomeEmail !== false;
+  // Email is optional — they sign in by employee ID. With none, use a hidden
+  // placeholder for the auth account and store no email on the record.
+  const providedEmail = (input.email ?? "").trim();
+  const hasEmail = providedEmail.includes("@");
+  const authEmail = hasEmail ? providedEmail : `${input.employee_id}@team.invoicing.local`;
+  const sendEmail = hasEmail && input.sendWelcomeEmail !== false;
+
   let password = (input.password ?? "").trim();
   if (!sendEmail && password.length < 8) {
     return {
-      error:
-        "Set an initial password of at least 8 characters, or enable the welcome email.",
+      error: hasEmail
+        ? "Set an initial password of at least 8 characters, or enable the welcome email."
+        : "With no email, set an initial password of at least 8 characters.",
     };
   }
   // When we're emailing a set-password link, HR can leave the password blank —
@@ -75,7 +82,7 @@ export async function createTeamMember(
 
   // 1) Create the login account (trigger creates the matching profile row).
   const { data: created, error: cErr } = await admin.auth.admin.createUser({
-    email: input.email,
+    email: authEmail,
     password,
     email_confirm: true,
     user_metadata: { role: "team_member", full_name: input.name },
@@ -100,7 +107,7 @@ export async function createTeamMember(
     .insert({
       profile_id: profileId,
       name: input.name,
-      email: input.email,
+      email: hasEmail ? providedEmail : null,
       employee_id: input.employee_id,
       whatsapp_number: input.whatsapp_number,
       date_joined: input.date_joined,
@@ -129,17 +136,17 @@ export async function createTeamMember(
     if (rErr) return { error: `Team member created, but rates failed: ${rErr.message}` };
   }
 
-  let okMsg = "Team member created.";
+  let okMsg = `Team member created. They sign in with ID ${input.employee_id}.`;
   if (sendEmail) {
     try {
       const h = headers();
       const host = h.get("x-forwarded-host") ?? h.get("host");
       const proto = h.get("x-forwarded-proto") ?? "https";
       if (host) {
-        await supabase.auth.resetPasswordForEmail(input.email, {
+        await supabase.auth.resetPasswordForEmail(providedEmail, {
           redirectTo: `${proto}://${host}/auth/callback?next=/reset-password`,
         });
-        okMsg = `Team member created. A set-password email was sent to ${input.email}.`;
+        okMsg = `Team member created. A set-password email was sent to ${providedEmail}.`;
       }
     } catch {
       // Best effort — the account exists; HR can reset the password manually.
