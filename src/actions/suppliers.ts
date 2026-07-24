@@ -255,30 +255,35 @@ export async function resetSupplierPassword(
 
 export async function createMemberLogin(
   memberId: string,
-  input: { email: string; password?: string; sendWelcomeEmail?: boolean }
+  input: { email?: string; password?: string; sendWelcomeEmail?: boolean }
 ): Promise<{ error?: string; message?: string }> {
   await ensureHr();
-  const email = input.email.trim();
-  if (!email.includes("@")) return { error: "Enter a valid email address." };
-
-  const sendEmail = input.sendWelcomeEmail !== false;
-  let password = (input.password ?? "").trim();
-  if (!sendEmail && password.length < 8) {
-    return {
-      error:
-        "Set an initial password of at least 8 characters, or enable the welcome email.",
-    };
-  }
-  if (!password) password = randomBytes(12).toString("base64url");
 
   const supabase = createClient();
   const { data: member } = await supabase
     .from("supplier_members")
-    .select("id, name, profile_id, supplier_id")
+    .select("id, name, code, profile_id, supplier_id")
     .eq("id", memberId)
     .maybeSingle();
   if (!member) return { error: "Member not found." };
   if (member.profile_id) return { error: "This member already has a login." };
+
+  // Email is optional — members sign in by their 4-digit ID. When no email is
+  // given we create the account with a hidden placeholder they never use.
+  const providedEmail = (input.email ?? "").trim();
+  const hasEmail = providedEmail.includes("@");
+  const email = hasEmail ? providedEmail : `${member.code}@members.invoicing.local`;
+  const sendEmail = hasEmail && input.sendWelcomeEmail !== false;
+
+  let password = (input.password ?? "").trim();
+  if (!sendEmail && password.length < 8) {
+    return {
+      error: hasEmail
+        ? "Set an initial password of at least 8 characters, or enable the welcome email."
+        : "With no email, set an initial password of at least 8 characters.",
+    };
+  }
+  if (!password) password = randomBytes(12).toString("base64url");
 
   const admin = createAdminClient();
   const { data: created, error: cErr } = await admin.auth.admin.createUser({
@@ -295,14 +300,14 @@ export async function createMemberLogin(
 
   const { error } = await supabase
     .from("supplier_members")
-    .update({ profile_id: profileId, email })
+    .update({ profile_id: profileId, email: hasEmail ? providedEmail : null })
     .eq("id", memberId);
   if (error) {
     await admin.auth.admin.deleteUser(profileId);
     return { error: error.message };
   }
 
-  let message = "Login created.";
+  let message = `Login created — they sign in with ID ${member.code}.`;
   if (sendEmail) {
     try {
       const h = headers();
@@ -312,7 +317,7 @@ export async function createMemberLogin(
         await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${proto}://${host}/auth/callback?next=/reset-password`,
         });
-        message = `Login created — a set-password email was sent to ${email}.`;
+        message = `Login created — set-password email sent to ${email}. They sign in with ID ${member.code}.`;
       }
     } catch {
       /* best effort */

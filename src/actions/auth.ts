@@ -14,7 +14,7 @@ async function resolveEmail(identifier: string): Promise<string | null> {
   if (/^[0-9]{4}$/.test(id)) {
     const admin = createAdminClient();
 
-    // Team member employee ID first, then department head login code.
+    // Team member employee ID, then roster member ID, then dept-head code.
     let profileId: string | null = null;
     const { data: tm } = await admin
       .from("team_members")
@@ -22,6 +22,15 @@ async function resolveEmail(identifier: string): Promise<string | null> {
       .eq("employee_id", id)
       .maybeSingle();
     profileId = tm?.profile_id ?? null;
+
+    if (!profileId) {
+      const { data: sm } = await admin
+        .from("supplier_members")
+        .select("profile_id")
+        .eq("code", id)
+        .maybeSingle();
+      profileId = sm?.profile_id ?? null;
+    }
 
     if (!profileId) {
       const { data: prof } = await admin

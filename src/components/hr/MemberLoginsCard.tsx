@@ -95,7 +95,7 @@ function Row({ member }: { member: MemberLoginRow }) {
 
       {member.hasLogin ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Field label="Reset password" hint={member.email ?? undefined}>
+          <Field label="Reset password" hint={member.email ?? `Signs in with ID ${member.code}`}>
             <Input
               type="text"
               value={password}
@@ -114,33 +114,43 @@ function Row({ member }: { member: MemberLoginRow }) {
         </div>
       ) : (
         <div className="space-y-3">
+          <p className="text-xs text-ink-500">
+            They sign in with their ID{" "}
+            <span className="font-mono font-medium text-ink-700">{member.code}</span>. An
+            email is optional — add one only if they should get a set-password link.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Login email" required>
+            <Field label="Login email (optional)">
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="member@example.com"
+                placeholder="Leave blank — they log in by ID"
               />
             </Field>
-            <Field label="Initial password" hint="Leave blank if sending a welcome email.">
+            <Field
+              label="Initial password"
+              hint={email.includes("@") ? "Or send a set-password email below." : "Required (no email)."}
+            >
               <Input
                 type="text"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Optional"
+                placeholder="min 8 characters"
               />
             </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm text-ink-600">
-            <input
-              type="checkbox"
-              checked={sendEmail}
-              onChange={(e) => setSendEmail(e.target.checked)}
-              className="h-4 w-4 rounded border-ink-300"
-            />
-            Send a set-password email
-          </label>
+          {email.includes("@") && (
+            <label className="flex items-center gap-2 text-sm text-ink-600">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="h-4 w-4 rounded border-ink-300"
+              />
+              Send a set-password email
+            </label>
+          )}
           <Button type="button" size="sm" loading={busy} onClick={onCreate}>
             Create login
           </Button>
