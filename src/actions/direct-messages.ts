@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
+import { twilioConfigured, sendWhatsApp } from "@/lib/twilio";
 
 /** HR: find or create the thread for a given person (by their profile id). */
 export async function hrGetOrCreateConversation(
@@ -69,10 +72,73 @@ export async function postDirectMessage(
   // Sending implies you've read the thread.
   await markConversationRead(conversationId);
 
+  // Best-effort WhatsApp ping to the other side (dormant until Twilio is set).
+  try {
+    await notifyOtherSide(conversationId);
+  } catch {
+    /* never let a notification failure break sending */
+  }
+
   revalidatePath("/hr/inbox");
   revalidatePath(`/hr/inbox/${conversationId}`);
   revalidatePath("/messages");
   return {};
+}
+
+/** WhatsApp "new message" ping to whoever didn't just send. No-op until Twilio env is set. */
+async function notifyOtherSide(conversationId: string): Promise<void> {
+  if (!twilioConfigured()) return;
+  const session = await getSession();
+  if (!session) return;
+
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  if (!host) return;
+  const origin = `${proto}://${host}`;
+
+  const admin = createAdminClient();
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("participant_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conv) return;
+
+  const fromHr = session.profile.role === "hr";
+
+  if (fromHr) {
+    // Ping the person (if we hold a WhatsApp number for them).
+    const { data: tm } = await admin
+      .from("team_members")
+      .select("whatsapp_number")
+      .eq("profile_id", conv.participant_id)
+      .maybeSingle();
+    const phone = tm?.whatsapp_number;
+    if (!phone) return; // no number on file (e.g. roster member / dept head) — skip
+    const link = `${origin}/messages`;
+    await sendWhatsApp(phone, {
+      body: `You have a new message from MathVision HR. Open the app: ${link}`,
+      senderLabel: "MathVision HR",
+      link,
+    });
+  } else {
+    // Ping HR's shared number.
+    const hrTo = process.env.HR_WHATSAPP_TO;
+    if (!hrTo) return;
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", conv.participant_id)
+      .maybeSingle();
+    const name = prof?.full_name ?? prof?.email ?? "A team member";
+    const link = `${origin}/hr/inbox/${conversationId}`;
+    await sendWhatsApp(hrTo, {
+      body: `${name} sent you a message in the invoicing app. Open: ${link}`,
+      senderLabel: name,
+      link,
+    });
+  }
 }
 
 /** Mark a thread read for whichever side the caller is on. */
