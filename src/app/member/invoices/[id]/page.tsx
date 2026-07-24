@@ -2,21 +2,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { periodLabel, type RateUnit, type TaskType } from "@/lib/constants";
+import { getFxRate } from "@/lib/fx";
+import { periodLabel, type Currency } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
-import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
   MemberInvoiceEditor,
-  type MemberRate,
+  type MemberPay,
 } from "@/components/invoice/MemberInvoiceEditor";
-import { MemberInvoiceDocument } from "@/components/MemberInvoiceDocument";
+import { MemberPaySummary } from "@/components/MemberPaySummary";
 import { deleteMemberInvoice } from "@/actions/member-invoices";
 import type {
+  SupplierMember,
   SupplierMemberInvoice,
   SupplierMemberInvoiceItem,
-  SupplierMemberRate,
 } from "@/lib/types";
 
 export default async function MemberInvoiceDetail({
@@ -37,7 +37,7 @@ export default async function MemberInvoiceDetail({
   if (!invRow) notFound();
   const invoice = invRow as SupplierMemberInvoice;
 
-  const [{ data: itemRows }, { data: member }, { data: rateRows }, { data: supplier }] =
+  const [{ data: itemRows }, { data: memberRow }, { data: supplierRow }] =
     await Promise.all([
       supabase
         .from("supplier_member_invoice_items")
@@ -46,32 +46,34 @@ export default async function MemberInvoiceDetail({
         .order("sort_order"),
       supabase
         .from("supplier_members")
-        .select("name")
+        .select("*")
         .eq("id", invoice.supplier_member_id)
         .maybeSingle(),
       supabase
-        .from("supplier_member_rates")
-        .select("*")
-        .eq("supplier_member_id", invoice.supplier_member_id)
-        .order("sort_order"),
-      supabase
         .from("team_members")
-        .select("name, payment_details")
+        .select("name")
         .eq("id", invoice.supplier_id)
         .maybeSingle(),
     ]);
 
   const items = (itemRows as SupplierMemberInvoiceItem[]) ?? [];
-  const memberName = (member as { name: string } | null)?.name ?? invoice.display_name;
-  const supplierRow = supplier as { name: string; payment_details: string | null } | null;
-  const supplierName = supplierRow?.name ?? "your agency";
-  const rates: MemberRate[] = ((rateRows as SupplierMemberRate[]) ?? []).map((r) => ({
-    id: r.id,
-    descriptor: r.descriptor,
-    unit: r.unit as RateUnit,
-    amount: Number(r.amount),
-    task: (r.task ?? null) as TaskType | null,
-  }));
+  const member = memberRow as SupplierMember | null;
+  const supplierName = (supplierRow as { name: string } | null)?.name ?? "your agency";
+
+  const pay: MemberPay = {
+    pay_type: member?.pay_type ?? "fixed",
+    monthly_salary: member?.monthly_salary != null ? Number(member.monthly_salary) : 0,
+    rate_unit: member?.rate_unit ?? "per_hour",
+    rate_amount: member?.rate_amount != null ? Number(member.rate_amount) : 0,
+    rate_descriptor: member?.rate_descriptor ?? null,
+  };
+
+  const rateCurrency = invoice.currency as Currency;
+  const paymentCurrency = (member?.payment_currency ?? null) as Currency | null;
+  const fxRate =
+    paymentCurrency && paymentCurrency !== rateCurrency
+      ? await getFxRate(rateCurrency, paymentCurrency)
+      : null;
 
   const editable = invoice.status === "draft" || invoice.status === "returned";
 
@@ -96,8 +98,10 @@ export default async function MemberInvoiceDetail({
           <MemberInvoiceEditor
             invoice={invoice}
             initialItems={items}
-            rates={rates}
+            pay={pay}
             supplierName={supplierName}
+            paymentCurrency={paymentCurrency}
+            fxRate={fxRate}
           />
           {invoice.status === "draft" && (
             <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
@@ -120,12 +124,12 @@ export default async function MemberInvoiceDetail({
               ? "This month is locked by your leader and can no longer be edited."
               : "This has been sent to your leader. You'll be able to edit again only if it's sent back."}
           </Alert>
-          <MemberInvoiceDocument
+          <MemberPaySummary
             invoice={invoice}
             items={items}
-            memberName={memberName}
             supplierName={supplierName}
-            supplierPaymentDetails={supplierRow?.payment_details ?? null}
+            paymentCurrency={paymentCurrency}
+            fxRate={fxRate}
           />
         </>
       )}

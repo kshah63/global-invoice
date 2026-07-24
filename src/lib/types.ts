@@ -4,6 +4,7 @@ import type {
   InvoiceStatus,
   MemberInvoiceStatus,
   MemberType,
+  PayType,
   RateUnit,
   Role,
   TaskType,
@@ -41,7 +42,8 @@ export interface TeamMember {
   work_location: string | null;
   head_of_department: string | null;
   payment_details: string | null;
-  currency: Currency;
+  currency: Currency; // rate/invoice currency
+  payment_currency: Currency | null; // payout currency (null = same as currency)
   ship_to_address: string | null;
   fixed_salary: number | null;
   subjects: string[];
@@ -96,6 +98,9 @@ export interface Invoice {
   tax_rate: number; // percentage, e.g. 9 for 9%
   tax_amount: number;
   total: number;
+  payment_currency: Currency | null; // payout currency (null = same as currency)
+  fx_rate: number | null;
+  fx_rate_date: string | null;
   submitted_at: string | null;
   approved_at: string | null;
   locked_at: string | null;
@@ -135,6 +140,14 @@ export interface SupplierMember {
   profile_id: string | null; // login account, if HR created one
   email: string | null;
   payment_details: string | null;
+  // Pay config: either a fixed monthly salary or a single session/hour rate.
+  pay_type: PayType;
+  monthly_salary: number | null;
+  rate_unit: RateUnit;
+  rate_amount: number;
+  rate_descriptor: string | null;
+  rate_task: TaskType | null;
+  payment_currency: Currency | null; // null = same as the supplier's currency
   created_at: string;
 }
 
@@ -164,11 +177,15 @@ export interface SupplierMemberInvoice {
   display_name: string;
   notes: string | null;
   return_note: string | null;
-  currency: Currency;
+  currency: Currency; // rate currency (= the supplier's currency)
   subtotal: number;
   tax_rate: number;
   tax_amount: number;
   total: number;
+  quantity: number; // sessions/hours (rate members)
+  payment_currency: Currency | null; // payout currency snapshot
+  fx_rate: number | null; // actual rate HR recorded (rate ccy -> payment ccy)
+  fx_rate_date: string | null;
   submitted_at: string | null;
   returned_at: string | null;
   created_at: string;

@@ -132,33 +132,24 @@ async function ensureSupplier(profileId, fields) {
   return data.id;
 }
 
-async function ensureSupplierMember(supplierId, fields, rates) {
+async function ensureSupplierMember(supplierId, fields) {
   const { data: existing } = await admin
     .from("supplier_members")
     .select("id")
     .eq("supplier_id", supplierId)
     .eq("code", fields.code)
     .maybeSingle();
-  let id;
   if (existing) {
-    id = existing.id;
-    await admin.from("supplier_members").update(fields).eq("id", id);
-  } else {
-    const { data, error } = await admin
-      .from("supplier_members")
-      .insert({ supplier_id: supplierId, ...fields })
-      .select("id")
-      .single();
-    if (error) throw error;
-    id = data.id;
+    await admin.from("supplier_members").update(fields).eq("id", existing.id);
+    return existing.id;
   }
-  await admin.from("supplier_member_rates").delete().eq("supplier_member_id", id);
-  if (rates.length) {
-    await admin.from("supplier_member_rates").insert(
-      rates.map((r, i) => ({ ...r, supplier_member_id: id, sort_order: i }))
-    );
-  }
-  return id;
+  const { data, error } = await admin
+    .from("supplier_members")
+    .insert({ supplier_id: supplierId, ...fields })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
 }
 
 async function ensureMemberInvoice(meta, items) {
@@ -173,6 +164,8 @@ async function ensureMemberInvoice(meta, items) {
         status: meta.status,
         display_name: meta.displayName,
         currency: meta.currency,
+        quantity: meta.quantity ?? 0,
+        payment_currency: meta.paymentCurrency ?? null,
         notes: meta.notes ?? null,
       },
       { onConflict: "supplier_member_id,period_year,period_month" }
@@ -451,32 +444,28 @@ async function main() {
     role: "supplier_member",
     full_name: "Jane Tan",
   });
-  const jane = await ensureSupplierMember(
-    bright,
-    {
-      name: "Jane Tan",
-      code: "3001",
-      profile_id: janeUser.id,
-      email: "jane.tan@brightminds.demo",
-    },
-    [
-      { descriptor: "Weekday teaching", unit: "per_hour", amount: 50, task: "teaching" },
-      { descriptor: "Paper marking", unit: "per_session", amount: 18, task: "paper_marking" },
-    ]
-  );
-  const omar = await ensureSupplierMember(
-    bright,
-    { name: "Omar Ali", code: "3002" },
-    [{ descriptor: "Consultancy", unit: "per_hour", amount: 80, task: "consultancy" }]
-  );
+  // Jane: FIXED salary, denominated in SGD but PAID in INR (demos the FX view).
+  const jane = await ensureSupplierMember(bright, {
+    name: "Jane Tan",
+    code: "3001",
+    profile_id: janeUser.id,
+    email: "jane.tan@brightminds.demo",
+    pay_type: "fixed",
+    monthly_salary: 3000,
+    payment_currency: "INR",
+  });
+  // Omar: part-timer on an hourly RATE, paid in SGD (no login — leader inputs).
+  const omar = await ensureSupplierMember(bright, {
+    name: "Omar Ali",
+    code: "3002",
+    pay_type: "rate",
+    rate_unit: "per_hour",
+    rate_amount: 80,
+    rate_descriptor: "Consultancy",
+    rate_task: "consultancy",
+  });
 
-  // Jane's own draft submission for July — she signs in to complete and send it.
-  const { data: janeRates } = await admin
-    .from("supplier_member_rates")
-    .select("id, descriptor")
-    .eq("supplier_member_id", jane);
-  const janeTeaching =
-    (janeRates ?? []).find((r) => r.descriptor === "Weekday teaching")?.id ?? null;
+  // Jane's own draft for July — salary line + an adjustment. She signs in to send it.
   await ensureMemberInvoice(
     {
       memberId: jane,
@@ -486,9 +475,10 @@ async function main() {
       status: "draft",
       displayName: "Jane Tan",
       currency: "SGD",
+      paymentCurrency: "INR",
     },
     [
-      { centre: "MathVision", task: "teaching", note: "Weekday classes", sessions: 0, hours: 18, rate_id: janeTeaching, rate_descriptor: "Weekday teaching", rate_unit: "per_hour", rate_amount: 50 },
+      { centre: "MathVision", task: "fixed_salary", note: null, sessions: 0, hours: 0, rate_id: null, rate_descriptor: "Monthly salary", rate_unit: "fixed", rate_amount: 3000 },
       { centre: "MathVision", task: "adjustment", note: "Unpaid day off", sessions: 0, hours: 0, rate_id: null, rate_descriptor: "Unpaid day off", rate_unit: "fixed", rate_amount: -40 },
     ]
   );
@@ -504,10 +494,11 @@ async function main() {
       currency: "SGD",
       company,
       taxRate: 9,
-      notes: "July services for our teachers plus printing costs.",
+      notes: "July salaries plus printing costs.",
     },
     [
-      { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "teaching", note: "Weekday classes", sessions: 0, hours: 18, rate_descriptor: "Weekday teaching", rate_unit: "per_hour", rate_amount: 50 },
+      { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "fixed_salary", note: null, sessions: 0, hours: 0, rate_descriptor: "Monthly salary", rate_unit: "fixed", rate_amount: 3000 },
+      { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "adjustment", note: "Unpaid day off", sessions: 0, hours: 0, rate_descriptor: "Unpaid day off", rate_unit: "fixed", rate_amount: -40 },
       { supplier_member_id: omar, worked_by_name: "Omar Ali", centre: "MathVision", task: "consultancy", note: "Curriculum review", sessions: 0, hours: 5, rate_descriptor: "Consultancy", rate_unit: "per_hour", rate_amount: 80 },
       { supplier_member_id: null, worked_by_name: null, centre: "MathVision", task: "misc_expenses", note: "Printing", sessions: 0, hours: 0, rate_descriptor: "Printing costs", rate_unit: "fixed", rate_amount: 120 },
     ]

@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Centre, RateUnit, TaskType } from "@/lib/constants";
 
 // --- Member: create their own invoice for an open period ------------------
 
@@ -75,17 +74,13 @@ export async function createMemberInvoice(formData: FormData) {
 }
 
 // --- Member: save draft (atomic, via RPC) ---------------------------------
+// The base pay line is resolved server-side from the roster config; the client
+// only supplies the worked quantity (rate members) and adjustment lines.
 
-export interface SaveMemberInvoiceItem {
-  centre: Centre;
-  task: TaskType;
+export interface MemberAdjustmentInput {
   note: string | null;
-  sessions: number;
-  hours: number;
-  rate_id: string | null;
-  rate_descriptor: string | null;
-  rate_unit: RateUnit;
-  rate_amount: number;
+  rate_descriptor: string; // the description
+  rate_amount: number; // signed (negative = deduction)
   sort_order: number;
 }
 
@@ -93,7 +88,8 @@ export interface SaveMemberInvoiceInput {
   invoiceId: string;
   displayName: string;
   notes: string | null;
-  items: SaveMemberInvoiceItem[];
+  quantity: number; // sessions/hours (ignored for fixed-salary members)
+  adjustments: MemberAdjustmentInput[];
 }
 
 export async function saveMemberInvoice(
@@ -104,7 +100,8 @@ export async function saveMemberInvoice(
     p_invoice: input.invoiceId,
     p_display_name: input.displayName,
     p_notes: input.notes,
-    p_items: input.items,
+    p_quantity: input.quantity,
+    p_adjustments: input.adjustments,
   });
   if (error) return { error: error.message };
 

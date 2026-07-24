@@ -73,7 +73,7 @@ export default async function TeamInvoiceDetail({
     const [{ data: rosterRows }, { data: subRows }] = await Promise.all([
       supabase
         .from("supplier_members")
-        .select("id, name, sort_order, rates:supplier_member_rates(*)")
+        .select("*")
         .eq("supplier_id", invoice.team_member_id)
         .eq("active", true)
         .order("sort_order"),
@@ -84,23 +84,29 @@ export default async function TeamInvoiceDetail({
         .eq("period_year", invoice.period_year)
         .eq("period_month", invoice.period_month),
     ]);
-    roster = (
-      (rosterRows as (Pick<SupplierMember, "id" | "name"> & {
-        rates: SupplierMemberRate[];
-      })[]) ?? []
-    ).map((m) => ({
+    // Each roster person contributes one synthetic "rate": their fixed salary
+    // or their session/hour rate. (The leader mostly pulls member submissions;
+    // this is for manually adding a person who hasn't submitted.)
+    roster = ((rosterRows as SupplierMember[]) ?? []).map((m) => ({
       id: m.id,
       name: m.name,
-      rates: (m.rates ?? [])
-        .slice()
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((r) => ({
-          id: r.id,
-          descriptor: r.descriptor,
-          unit: r.unit as RateUnit,
-          amount: Number(r.amount),
-          task: (r.task ?? null) as TaskType | null,
-        })),
+      rates: [
+        m.pay_type === "fixed"
+          ? {
+              id: m.id,
+              descriptor: "Monthly salary",
+              unit: "fixed" as RateUnit,
+              amount: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
+              task: "fixed_salary" as TaskType,
+            }
+          : {
+              id: m.id,
+              descriptor: m.rate_descriptor || "Work",
+              unit: m.rate_unit as RateUnit,
+              amount: Number(m.rate_amount),
+              task: (m.rate_task ?? null) as TaskType | null,
+            },
+      ],
     }));
     submissions = (
       (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? []

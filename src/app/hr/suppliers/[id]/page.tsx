@@ -12,7 +12,7 @@ import { MemberLoginsCard } from "@/components/hr/MemberLoginsCard";
 import { SupplierPasswordCard } from "@/components/hr/SupplierPasswordCard";
 import { deleteSupplier } from "@/actions/suppliers";
 import type { RateUnit, TaskType } from "@/lib/constants";
-import type { SupplierMember, SupplierMemberRate, TeamMember } from "@/lib/types";
+import type { SupplierMember, TeamMember } from "@/lib/types";
 
 export const metadata = { title: "Edit Supplier" };
 
@@ -37,26 +37,23 @@ export default async function EditSupplier({
 
   const { data: memberRows } = await supabase
     .from("supplier_members")
-    .select("*, rates:supplier_member_rates(*)")
+    .select("*")
     .eq("supplier_id", supplier.id)
     .order("sort_order");
 
-  const memberList =
-    (memberRows as (SupplierMember & { rates: SupplierMemberRate[] })[]) ?? [];
+  const memberList = (memberRows as SupplierMember[]) ?? [];
 
   const people = memberList.map((m) => ({
     id: m.id,
     name: m.name,
     code: m.code,
-    rates: (m.rates ?? [])
-      .slice()
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((r) => ({
-        descriptor: r.descriptor,
-        unit: r.unit as RateUnit,
-        amount: Number(r.amount),
-        task: (r.task ?? null) as TaskType | null,
-      })),
+    pay_type: m.pay_type,
+    monthly_salary: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
+    rate_unit: m.rate_unit as RateUnit,
+    rate_amount: Number(m.rate_amount),
+    rate_descriptor: m.rate_descriptor,
+    rate_task: (m.rate_task ?? null) as TaskType | null,
+    payment_currency: m.payment_currency,
   }));
 
   const loginRows = memberList.map((m) => ({

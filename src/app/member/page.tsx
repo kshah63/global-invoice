@@ -77,7 +77,7 @@ export default async function MemberOverview({
       <Flash ok={searchParams.ok} error={searchParams.error} />
       <PageHeader
         title={`Hello, ${member.name.split(" ")[0]}`}
-        description={`Complete your monthly entries — they go to ${supplierName} to review and bill.`}
+        description={`Confirm your pay and add any adjustments — they go to ${supplierName} to review.`}
       />
 
       {returned.map((inv) => (

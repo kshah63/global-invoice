@@ -114,6 +114,16 @@ export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
   supplier: "Supplier",
 };
 
+// --- Roster member pay type (fixed salary vs a session/hour rate) ----------
+
+export const PAY_TYPES = ["fixed", "rate"] as const;
+export type PayType = (typeof PAY_TYPES)[number];
+
+export const PAY_TYPE_LABELS: Record<PayType, string> = {
+  fixed: "Fixed monthly salary",
+  rate: "Rate (per session / hour)",
+};
+
 // --- Rate units -----------------------------------------------------------
 
 export const RATE_UNITS = ["per_session", "per_hour", "fixed"] as const;

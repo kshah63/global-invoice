@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
-import type { Currency, RateUnit, TaskType } from "@/lib/constants";
+import type { Currency, PayType, RateUnit, TaskType } from "@/lib/constants";
 
 async function ensureHr() {
   const session = await getSession();
@@ -23,18 +23,17 @@ export interface SupplierInput {
   payment_details: string | null;
 }
 
-export interface RosterRateInput {
-  descriptor: string;
-  unit: RateUnit;
-  amount: number;
-  task: TaskType | null;
-}
-
 export interface RosterPersonInput {
   id: string | null;
   name: string;
   code: string;
-  rates: RosterRateInput[];
+  pay_type: PayType;
+  monthly_salary: number | null;
+  rate_unit: RateUnit;
+  rate_amount: number;
+  rate_descriptor: string | null;
+  rate_task: TaskType | null;
+  payment_currency: Currency | null;
 }
 
 function apiKeyError(msg: string) {
@@ -177,45 +176,44 @@ export async function saveRoster(
     await supabase.from("supplier_members").delete().in("id", toDelete);
   }
 
+  // Validate pay config.
+  const badPay = cleaned.find(
+    (p) =>
+      (p.pay_type === "fixed" && !((p.monthly_salary ?? 0) > 0)) ||
+      (p.pay_type === "rate" && !(p.rate_amount > 0))
+  );
+  if (badPay) {
+    return {
+      error: `Set a ${badPay.pay_type === "fixed" ? "monthly salary" : "rate amount"} for "${badPay.name || "a person"}".`,
+    };
+  }
+
   for (let i = 0; i < cleaned.length; i++) {
     const p = cleaned[i];
-    let personId = p.id;
+    const payFields = {
+      name: p.name.trim(),
+      code: p.code.trim(),
+      sort_order: i,
+      pay_type: p.pay_type,
+      monthly_salary: p.pay_type === "fixed" ? p.monthly_salary ?? 0 : null,
+      rate_unit: p.pay_type === "rate" ? p.rate_unit : "per_hour",
+      rate_amount: p.pay_type === "rate" ? p.rate_amount || 0 : 0,
+      rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor : null,
+      rate_task: p.pay_type === "rate" ? p.rate_task : null,
+      payment_currency: p.payment_currency,
+    };
 
-    if (personId) {
+    if (p.id) {
       const { error } = await supabase
         .from("supplier_members")
-        .update({ name: p.name.trim(), code: p.code.trim(), sort_order: i })
-        .eq("id", personId);
+        .update(payFields)
+        .eq("id", p.id);
       if (error) return { error: rosterError(error) };
     } else {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("supplier_members")
-        .insert({
-          supplier_id: supplierId,
-          name: p.name.trim(),
-          code: p.code.trim(),
-          sort_order: i,
-        })
-        .select("id")
-        .single();
-      if (error || !data) return { error: rosterError(error) };
-      personId = data.id;
-    }
-
-    await supabase.from("supplier_member_rates").delete().eq("supplier_member_id", personId);
-    const rateRows = p.rates
-      .filter((r) => r.descriptor.trim())
-      .map((r, ri) => ({
-        supplier_member_id: personId,
-        descriptor: r.descriptor.trim(),
-        unit: r.unit,
-        amount: r.amount || 0,
-        task: r.task,
-        sort_order: ri,
-      }));
-    if (rateRows.length) {
-      const { error } = await supabase.from("supplier_member_rates").insert(rateRows);
-      if (error) return { error: error.message };
+        .insert({ supplier_id: supplierId, ...payFields });
+      if (error) return { error: rosterError(error) };
     }
   }
 

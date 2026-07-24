@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  CURRENCIES,
   CURRENCY_META,
-  RATE_UNITS,
-  RATE_UNIT_LABELS,
+  PAY_TYPES,
+  PAY_TYPE_LABELS,
   SUPPLIER_TASKS,
   TASK_LABELS,
   type Currency,
+  type PayType,
   type RateUnit,
   type TaskType,
 } from "@/lib/constants";
@@ -18,19 +20,21 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Label, Select } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 
-interface RateRow {
-  key: string;
-  descriptor: string;
-  unit: RateUnit;
-  amount: number;
-  task: TaskType | null;
-}
-interface PersonRow {
-  key: string;
+export interface RosterPersonState {
   id: string | null;
   name: string;
   code: string;
-  rates: RateRow[];
+  pay_type: PayType;
+  monthly_salary: number | null;
+  rate_unit: RateUnit;
+  rate_amount: number;
+  rate_descriptor: string | null;
+  rate_task: TaskType | null;
+  payment_currency: Currency | null;
+}
+
+interface PersonRow extends RosterPersonState {
+  key: string;
 }
 
 let seq = 0;
@@ -42,18 +46,12 @@ export function RosterEditor({
   initialPeople,
 }: {
   supplierId: string;
-  currency: Currency;
-  initialPeople: { id: string; name: string; code: string; rates: Omit<RateRow, "key">[] }[];
+  currency: Currency; // the supplier's rate/invoice currency
+  initialPeople: RosterPersonState[];
 }) {
   const router = useRouter();
   const [people, setPeople] = useState<PersonRow[]>(
-    initialPeople.map((p) => ({
-      key: key(),
-      id: p.id,
-      name: p.name,
-      code: p.code,
-      rates: p.rates.map((r) => ({ ...r, key: key() })),
-    }))
+    initialPeople.map((p) => ({ ...p, key: key() }))
   );
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -61,48 +59,29 @@ export function RosterEditor({
 
   const sym = CURRENCY_META[currency].symbol;
 
-  function patchPerson(k: string, patch: Partial<PersonRow>) {
-    setPeople((prev) => prev.map((p) => (p.key === k ? { ...p, ...patch } : p)));
+  function patch(k: string, p: Partial<PersonRow>) {
+    setPeople((prev) => prev.map((r) => (r.key === k ? { ...r, ...p } : r)));
   }
   function addPerson() {
     setPeople((prev) => [
       ...prev,
-      { key: key(), id: null, name: "", code: "", rates: [] },
+      {
+        key: key(),
+        id: null,
+        name: "",
+        code: "",
+        pay_type: "fixed",
+        monthly_salary: 0,
+        rate_unit: "per_hour",
+        rate_amount: 0,
+        rate_descriptor: "",
+        rate_task: null,
+        payment_currency: null,
+      },
     ]);
   }
   function removePerson(k: string) {
-    setPeople((prev) => prev.filter((p) => p.key !== k));
-  }
-  function addRate(pk: string) {
-    setPeople((prev) =>
-      prev.map((p) =>
-        p.key === pk
-          ? {
-              ...p,
-              rates: [
-                ...p.rates,
-                { key: key(), descriptor: "", unit: "per_session", amount: 0, task: null },
-              ],
-            }
-          : p
-      )
-    );
-  }
-  function patchRate(pk: string, rk: string, patch: Partial<RateRow>) {
-    setPeople((prev) =>
-      prev.map((p) =>
-        p.key === pk
-          ? { ...p, rates: p.rates.map((r) => (r.key === rk ? { ...r, ...patch } : r)) }
-          : p
-      )
-    );
-  }
-  function removeRate(pk: string, rk: string) {
-    setPeople((prev) =>
-      prev.map((p) =>
-        p.key === pk ? { ...p, rates: p.rates.filter((r) => r.key !== rk) } : p
-      )
-    );
+    setPeople((prev) => prev.filter((r) => r.key !== k));
   }
 
   async function onSave() {
@@ -113,12 +92,13 @@ export function RosterEditor({
       id: p.id,
       name: p.name.trim(),
       code: p.code.trim(),
-      rates: p.rates.map((r) => ({
-        descriptor: r.descriptor,
-        unit: r.unit,
-        amount: Number(r.amount) || 0,
-        task: r.task,
-      })),
+      pay_type: p.pay_type,
+      monthly_salary: p.pay_type === "fixed" ? Number(p.monthly_salary) || 0 : null,
+      rate_unit: p.rate_unit,
+      rate_amount: p.pay_type === "rate" ? Number(p.rate_amount) || 0 : 0,
+      rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor?.trim() || null : null,
+      rate_task: p.pay_type === "rate" ? p.rate_task : null,
+      payment_currency: p.payment_currency,
     }));
     const res = await saveRoster(supplierId, payload);
     setSaving(false);
@@ -134,7 +114,7 @@ export function RosterEditor({
     <Card>
       <CardHeader
         title="People (roster)"
-        description="HR hard-codes each person's rates. These appear in the supplier's invoice."
+        description="Each person is either a fixed monthly salary or a session/hour rate. HR sets the figure; they confirm it and add adjustments."
         action={
           <Button type="button" size="sm" variant="brand-soft" onClick={addPerson}>
             + Add person
@@ -168,15 +148,12 @@ export function RosterEditor({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Name" required>
-                <Input
-                  value={p.name}
-                  onChange={(e) => patchPerson(p.key, { name: e.target.value })}
-                />
+                <Input value={p.name} onChange={(e) => patch(p.key, { name: e.target.value })} />
               </Field>
               <Field label="4-digit ID" required>
                 <Input
                   value={p.code}
-                  onChange={(e) => patchPerson(p.key, { code: e.target.value })}
+                  onChange={(e) => patch(p.key, { code: e.target.value })}
                   inputMode="numeric"
                   maxLength={4}
                   placeholder="3001"
@@ -184,90 +161,101 @@ export function RosterEditor({
               </Field>
             </div>
 
-            <div className="mt-3">
-              <div className="mb-2 flex items-center justify-between">
-                <Label>Rates</Label>
-                <Button type="button" size="sm" variant="neutral" onClick={() => addRate(p.key)}>
-                  + Add rate
-                </Button>
-              </div>
-              {p.rates.length === 0 && (
-                <p className="text-xs text-ink-400">No rates yet.</p>
-              )}
-              <div className="space-y-2">
-                {p.rates.map((r) => (
-                  <div
-                    key={r.key}
-                    className="grid gap-2 rounded-lg border border-ink-200 bg-white p-2 sm:grid-cols-12"
-                  >
-                    <div className="sm:col-span-2">
-                      <Label>Task</Label>
-                      <Select
-                        value={r.task ?? ""}
-                        onChange={(e) =>
-                          patchRate(p.key, r.key, {
-                            task: (e.target.value || null) as TaskType | null,
-                          })
-                        }
-                      >
-                        <option value="">Any</option>
-                        {SUPPLIER_TASKS.map((t) => (
-                          <option key={t} value={t}>
-                            {TASK_LABELS[t]}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="sm:col-span-4">
-                      <Label>Descriptor</Label>
-                      <Input
-                        value={r.descriptor}
-                        onChange={(e) =>
-                          patchRate(p.key, r.key, { descriptor: e.target.value })
-                        }
-                        placeholder="Weekday teaching"
-                      />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <Label>Unit</Label>
-                      <Select
-                        value={r.unit}
-                        onChange={(e) =>
-                          patchRate(p.key, r.key, { unit: e.target.value as RateUnit })
-                        }
-                      >
-                        {RATE_UNITS.map((u) => (
-                          <option key={u} value={u}>
-                            {RATE_UNIT_LABELS[u]}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Label>Amount ({sym})</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={r.amount}
-                        onChange={(e) =>
-                          patchRate(p.key, r.key, { amount: Number(e.target.value) })
-                        }
-                      />
-                    </div>
-                    <div className="flex items-end sm:col-span-1">
-                      <button
-                        type="button"
-                        onClick={() => removeRate(p.key, r.key)}
-                        className="h-10 w-full rounded-lg text-xs font-medium text-red-600 hover:bg-red-50"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Pay type">
+                <Select
+                  value={p.pay_type}
+                  onChange={(e) => patch(p.key, { pay_type: e.target.value as PayType })}
+                >
+                  {PAY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {PAY_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Paid in"
+                hint={`Leave as “Same as ${currency}” unless they're paid in another currency.`}
+              >
+                <Select
+                  value={p.payment_currency ?? ""}
+                  onChange={(e) =>
+                    patch(p.key, {
+                      payment_currency: (e.target.value || null) as Currency | null,
+                    })
+                  }
+                >
+                  <option value="">Same as {currency}</option>
+                  {CURRENCIES.filter((c) => c !== currency).map((c) => (
+                    <option key={c} value={c}>
+                      {CURRENCY_META[c].label} ({c})
+                    </option>
+                  ))}
+                </Select>
+              </Field>
             </div>
+
+            {p.pay_type === "fixed" ? (
+              <div className="mt-3">
+                <Field label={`Monthly salary (${sym})`} required>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={p.monthly_salary ?? 0}
+                    onChange={(e) => patch(p.key, { monthly_salary: Number(e.target.value) })}
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                <div className="sm:col-span-2">
+                  <Label>Descriptor</Label>
+                  <Input
+                    value={p.rate_descriptor ?? ""}
+                    onChange={(e) => patch(p.key, { rate_descriptor: e.target.value })}
+                    placeholder="Weekday teaching"
+                  />
+                </div>
+                <div>
+                  <Label>Unit</Label>
+                  <Select
+                    value={p.rate_unit}
+                    onChange={(e) => patch(p.key, { rate_unit: e.target.value as RateUnit })}
+                  >
+                    <option value="per_session">per session</option>
+                    <option value="per_hour">per hour</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Amount ({sym})</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={p.rate_amount}
+                    onChange={(e) => patch(p.key, { rate_amount: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label>Task</Label>
+                  <Select
+                    value={p.rate_task ?? ""}
+                    onChange={(e) =>
+                      patch(p.key, { rate_task: (e.target.value || null) as TaskType | null })
+                    }
+                  >
+                    <option value="">Teaching (default)</option>
+                    {SUPPLIER_TASKS.map((t) => (
+                      <option key={t} value={t}>
+                        {TASK_LABELS[t]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
