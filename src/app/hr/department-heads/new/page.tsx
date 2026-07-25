@@ -17,7 +17,7 @@ export default async function NewDepartmentHead() {
       </div>
       <PageHeader
         title="Add department head"
-        description="Creates their login. They sign in with the 4-digit Login ID and submit session/hour cross-checks."
+        description="Creates their login. They sign in with their Login ID (or email) and submit session/hour cross-checks."
       />
       <Card>
         <CardBody>

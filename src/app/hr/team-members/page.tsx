@@ -208,7 +208,7 @@ export default async function PeoplePage({
       <Card className="mt-8">
         <CardHeader
           title="Department heads"
-          description="They submit session/hour cross-checks and sign in with their 4-digit Login ID."
+          description="They submit session/hour cross-checks and sign in with their Login ID."
         />
         <CardBody className={deptHeads.length === 0 ? undefined : "p-0"}>
           {deptHeads.length === 0 ? (

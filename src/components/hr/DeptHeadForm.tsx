@@ -28,8 +28,8 @@ export function DeptHeadForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!/^[0-9]{4}$/.test(loginCode.trim())) {
-      setError("Login ID must be a 4-digit code.");
+    if (!/^[A-Za-z0-9]{4,6}$/.test(loginCode.trim())) {
+      setError("Login ID must be 4–6 letters or numbers.");
       return;
     }
     if (password.length < 8) {
@@ -61,21 +61,23 @@ export function DeptHeadForm() {
         <Field label="Full name" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
-        <Field label="Email" required hint="For password resets.">
+        <Field label="Email" hint="Optional — for password resets. They can sign in by ID.">
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required
           />
         </Field>
-        <Field label="Login ID (4 digits)" required hint="They sign in with this.">
+        <Field
+          label="Login ID (4–6 characters)"
+          required
+          hint="Letters or numbers. They sign in with this."
+        >
           <Input
             value={loginCode}
-            onChange={(e) => setLoginCode(e.target.value)}
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="2001"
+            onChange={(e) => setLoginCode(e.target.value.toUpperCase())}
+            maxLength={6}
+            placeholder="MATHS1"
             required
           />
         </Field>

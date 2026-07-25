@@ -34,9 +34,9 @@ export function LoginForm({ next }: { next?: string }) {
     <form onSubmit={onSubmit} className="space-y-4">
       {error && <Alert tone="danger">{error}</Alert>}
       <Field
-        label="Employee ID or email"
+        label="Login ID or email"
         htmlFor="identifier"
-        hint="Team members & department heads: use your 4-digit ID. HR: use your email."
+        hint="Team members & department heads: use your ID. HR: use your email."
       >
         <Input
           id="identifier"

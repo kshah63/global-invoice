@@ -42,20 +42,25 @@ export async function updateCompany(formData: FormData) {
 
 export async function createDepartmentHead(input: {
   name: string;
-  email: string;
+  email: string; // optional — they can sign in with their login ID instead
   password: string;
   business: Centre;
   loginCode: string;
 }): Promise<{ error?: string }> {
   await ensureHr();
-  const code = (input.loginCode ?? "").trim();
-  if (!/^[0-9]{4}$/.test(code)) {
-    return { error: "Login ID must be a 4-digit code." };
+  // Codes are stored upper-cased so login matching is case-insensitive.
+  const code = (input.loginCode ?? "").trim().toUpperCase();
+  if (!/^[A-Za-z0-9]{4,6}$/.test(code)) {
+    return { error: "Login ID must be 4–6 letters or numbers." };
+  }
+  const password = (input.password ?? "").trim();
+  if (password.length < 8) {
+    return { error: "Set an initial password of at least 8 characters." };
   }
 
   const admin = createAdminClient();
 
-  // Keep the 4-digit login space unambiguous across team members + dept heads.
+  // Keep the login space unambiguous across every code namespace.
   const { data: tmHit } = await admin
     .from("team_members")
     .select("id")
@@ -63,6 +68,22 @@ export async function createDepartmentHead(input: {
     .maybeSingle();
   if (tmHit) {
     return { error: "That ID is already used by a team member — pick another." };
+  }
+  const { data: supHit } = await admin
+    .from("team_members")
+    .select("id")
+    .eq("supplier_code", code)
+    .maybeSingle();
+  if (supHit) {
+    return { error: "That ID is already used by a supplier — pick another." };
+  }
+  const { data: smHit } = await admin
+    .from("supplier_members")
+    .select("id")
+    .eq("code", code)
+    .maybeSingle();
+  if (smHit) {
+    return { error: "That ID is already used by a roster member — pick another." };
   }
   const { data: profHit } = await admin
     .from("profiles")
@@ -73,9 +94,17 @@ export async function createDepartmentHead(input: {
     return { error: "That ID is already in use — pick another." };
   }
 
+  // Email is optional — with none, use a hidden placeholder for the auth
+  // account and let them sign in with their login ID.
+  const providedEmail = (input.email ?? "").trim();
+  const hasEmail = providedEmail.includes("@");
+  const authEmail = hasEmail
+    ? providedEmail
+    : `${code.toLowerCase()}@dept.invoicing.local`;
+
   const { data: created, error } = await admin.auth.admin.createUser({
-    email: input.email,
-    password: input.password,
+    email: authEmail,
+    password,
     email_confirm: true,
     user_metadata: {
       role: "department_head",
@@ -99,6 +128,8 @@ export async function createDepartmentHead(input: {
     .update({ login_code: code })
     .eq("id", created.user.id);
   if (codeErr) {
+    // Roll back the orphaned auth user so the code/email can be reused.
+    await admin.auth.admin.deleteUser(created.user.id);
     return { error: `Account created, but assigning the login ID failed: ${codeErr.message}` };
   }
 

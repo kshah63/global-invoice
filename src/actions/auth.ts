@@ -6,55 +6,58 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Resolve a login identifier to an email. A 4-digit code is a team member's
- * employee ID or a department head's login code; anything with "@" is an email.
+ * Resolve a login identifier to an email. Anything with "@" is an email;
+ * otherwise it's a login code — a team member's employee ID, a roster member's
+ * code, a department head's login code (4–6 alphanumeric), or a supplier's
+ * code. Alphanumeric codes are matched case-insensitively.
  */
 async function resolveEmail(identifier: string): Promise<string | null> {
   const id = identifier.trim();
-  if (/^[0-9]{4}$/.test(id)) {
-    const admin = createAdminClient();
+  if (!id) return null;
+  if (id.includes("@")) return id;
 
-    // Team member employee ID, then roster member ID, then dept-head code.
-    let profileId: string | null = null;
-    const { data: tm } = await admin
-      .from("team_members")
+  const admin = createAdminClient();
+  const up = id.toUpperCase();
+
+  // Team member employee ID, then roster member code (both numeric).
+  let profileId: string | null = null;
+  const { data: tm } = await admin
+    .from("team_members")
+    .select("profile_id")
+    .eq("employee_id", id)
+    .maybeSingle();
+  profileId = tm?.profile_id ?? null;
+
+  if (!profileId) {
+    const { data: sm } = await admin
+      .from("supplier_members")
       .select("profile_id")
-      .eq("employee_id", id)
+      .eq("code", id)
       .maybeSingle();
-    profileId = tm?.profile_id ?? null;
+    profileId = sm?.profile_id ?? null;
+  }
 
-    if (!profileId) {
-      const { data: sm } = await admin
-        .from("supplier_members")
-        .select("profile_id")
-        .eq("code", id)
-        .maybeSingle();
-      profileId = sm?.profile_id ?? null;
-    }
+  // Department-head login code (stored upper-cased).
+  if (!profileId) {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("id")
+      .in("login_code", [id, up])
+      .maybeSingle();
+    profileId = prof?.id ?? null;
+  }
 
-    if (!profileId) {
-      const { data: prof } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("login_code", id)
-        .maybeSingle();
-      profileId = prof?.id ?? null;
-    }
-
-    if (!profileId) return null;
+  if (profileId) {
     const { data: userRes } = await admin.auth.admin.getUserById(profileId);
     return userRes?.user?.email ?? null;
   }
 
-  if (id.includes("@")) return id;
-
   // Otherwise it may be a supplier code (the leader logs in with it).
-  const admin = createAdminClient();
   const { data: sup } = await admin
     .from("team_members")
     .select("profile_id")
     .eq("member_type", "supplier")
-    .eq("supplier_code", id)
+    .in("supplier_code", [id, up])
     .maybeSingle();
   if (sup?.profile_id) {
     const { data: userRes } = await admin.auth.admin.getUserById(sup.profile_id);
@@ -64,37 +67,28 @@ async function resolveEmail(identifier: string): Promise<string | null> {
 }
 
 /**
- * Sign in with either an email (HR / department heads) or a 4-digit employee ID
- * (team members). The employee ID is resolved server-side to the account's
- * login email; errors are intentionally generic to avoid revealing which
- * employee IDs / emails exist.
+ * Sign in with either an email (HR, or anyone who has one) or a login ID / code.
+ * The identifier is resolved server-side to the account's login email; errors
+ * are intentionally generic to avoid revealing which IDs / emails exist.
  */
 export async function signInWithIdentifier(
   identifier: string,
   password: string
 ): Promise<{ error?: string }> {
   const id = identifier.trim();
-  if (!id || !password) return { error: "Enter your employee ID (or email) and password." };
+  if (!id || !password) return { error: "Enter your ID or email and your password." };
 
-  const isEmployeeId = /^[0-9]{4}$/.test(id);
+  const isEmail = id.includes("@");
+  const genericError = isEmail
+    ? "Invalid email or password."
+    : "Invalid ID or password.";
+
   const email = await resolveEmail(id);
-  if (!email) {
-    return {
-      error: isEmployeeId
-        ? "Invalid employee ID or password."
-        : "Invalid email or password.",
-    };
-  }
+  if (!email) return { error: genericError };
 
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    return {
-      error: isEmployeeId
-        ? "Invalid employee ID or password."
-        : "Invalid email or password.",
-    };
-  }
+  if (error) return { error: genericError };
   return {};
 }
 
