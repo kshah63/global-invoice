@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { hrActionsFor } from "@/lib/invoice";
-import { getFxRate } from "@/lib/fx";
 import { TASK_LABELS, periodLabel, type Currency, type TaskType } from "@/lib/constants";
 import { formatNumber } from "@/lib/format";
 import { Flash } from "@/components/Flash";
@@ -12,7 +11,6 @@ import { StatusPill } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
-import { PayoutFxCard } from "@/components/hr/PayoutFxCard";
 import { InvoiceMessageCard } from "@/components/hr/InvoiceMessageCard";
 import {
   MemberSubmissionsPanel,
@@ -92,16 +90,6 @@ export default async function HrInvoiceDetail({
       .eq("period_month", invoice.period_month);
     const subList =
       (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
-    const baseCcy = invoice.currency as Currency;
-    const payCcys = Array.from(
-      new Set(
-        subList
-          .map((s) => s.payment_currency)
-          .filter((c): c is Currency => !!c && c !== baseCcy)
-      )
-    );
-    const rateMap = new Map<Currency, number | null>();
-    await Promise.all(payCcys.map(async (c) => rateMap.set(c, await getFxRate(baseCcy, c))));
     memberSubs = subList
       .map((s) => ({
         id: s.id,
@@ -110,13 +98,6 @@ export default async function HrInvoiceDetail({
         total: Number(s.total),
         currency: s.currency as Currency,
         returnNote: s.return_note,
-        paymentCurrency: (s.payment_currency ?? null) as Currency | null,
-        indicativeRate:
-          s.payment_currency && s.payment_currency !== s.currency
-            ? rateMap.get(s.payment_currency as Currency) ?? null
-            : null,
-        fxRate: s.fx_rate != null ? Number(s.fx_rate) : null,
-        fxRateDate: s.fx_rate_date,
       }))
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   }
@@ -156,12 +137,6 @@ export default async function HrInvoiceDetail({
   );
 
   const actions = hrActionsFor(invoice.status);
-
-  // Payout FX (individuals paid in another currency).
-  const rateCurrency = invoice.currency as Currency;
-  const paymentCurrency = (tm?.payment_currency ?? null) as Currency | null;
-  const showFx = !!paymentCurrency && paymentCurrency !== rateCurrency;
-  const fxRate = showFx ? await getFxRate(rateCurrency, paymentCurrency!) : null;
 
   return (
     <>
@@ -302,29 +277,9 @@ export default async function HrInvoiceDetail({
         />
       )}
 
-      {memberSubs.length > 0 && (
-        <MemberSubmissionsPanel submissions={memberSubs} canManageFx />
-      )}
+      {memberSubs.length > 0 && <MemberSubmissionsPanel submissions={memberSubs} />}
 
-      {showFx && paymentCurrency && (
-        <PayoutFxCard
-          invoiceId={invoice.id}
-          total={invoice.total}
-          rateCurrency={rateCurrency}
-          paymentCurrency={paymentCurrency}
-          indicativeRate={fxRate}
-          initialRate={invoice.fx_rate}
-          initialDate={invoice.fx_rate_date}
-        />
-      )}
-
-      <InvoiceDocument
-        invoice={invoice}
-        items={items}
-        teamMember={tm}
-        paymentCurrency={paymentCurrency}
-        fxRate={fxRate}
-      />
+      <InvoiceDocument invoice={invoice} items={items} teamMember={tm} />
     </>
   );
 }

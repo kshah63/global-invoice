@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CURRENCIES,
   CURRENCY_META,
   PAY_TYPES,
   PAY_TYPE_LABELS,
@@ -30,7 +29,6 @@ export interface RosterPersonState {
   rate_amount: number;
   rate_descriptor: string | null;
   rate_task: TaskType | null;
-  payment_currency: Currency | null;
 }
 
 interface PersonRow extends RosterPersonState {
@@ -76,7 +74,6 @@ export function RosterEditor({
         rate_amount: 0,
         rate_descriptor: "",
         rate_task: null,
-        payment_currency: null,
       },
     ]);
   }
@@ -98,7 +95,6 @@ export function RosterEditor({
       rate_amount: p.pay_type === "rate" ? Number(p.rate_amount) || 0 : 0,
       rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor?.trim() || null : null,
       rate_task: p.pay_type === "rate" ? p.rate_task : null,
-      payment_currency: p.payment_currency,
     }));
     const res = await saveRoster(supplierId, payload);
     setSaving(false);
@@ -161,7 +157,7 @@ export function RosterEditor({
               </Field>
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-3">
               <Field label="Pay type">
                 <Select
                   value={p.pay_type}
@@ -170,26 +166,6 @@ export function RosterEditor({
                   {PAY_TYPES.map((t) => (
                     <option key={t} value={t}>
                       {PAY_TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field
-                label="Paid in"
-                hint={`Leave as “Same as ${currency}” unless they're paid in another currency.`}
-              >
-                <Select
-                  value={p.payment_currency ?? ""}
-                  onChange={(e) =>
-                    patch(p.key, {
-                      payment_currency: (e.target.value || null) as Currency | null,
-                    })
-                  }
-                >
-                  <option value="">Same as {currency}</option>
-                  {CURRENCIES.filter((c) => c !== currency).map((c) => (
-                    <option key={c} value={c}>
-                      {CURRENCY_META[c].label} ({c})
                     </option>
                   ))}
                 </Select>

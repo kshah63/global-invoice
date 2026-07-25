@@ -2,13 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  RATE_UNIT_LABELS,
-  type Currency,
-  type PayType,
-  type RateUnit,
-} from "@/lib/constants";
+import { RATE_UNIT_LABELS, type PayType, type RateUnit } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
+import { TransferNote } from "@/components/TransferNote";
 import type { SupplierMemberInvoice, SupplierMemberInvoiceItem } from "@/lib/types";
 import {
   saveMemberInvoice,
@@ -45,15 +41,11 @@ export function MemberInvoiceEditor({
   initialItems,
   pay,
   supplierName,
-  paymentCurrency,
-  fxRate,
 }: {
   invoice: SupplierMemberInvoice;
   initialItems: SupplierMemberInvoiceItem[];
   pay: MemberPay;
   supplierName: string;
-  paymentCurrency: Currency | null; // null / same as rate ccy → no conversion shown
-  fxRate: number | null; // indicative rate: rate ccy -> payment ccy
 }) {
   const router = useRouter();
   const currency = invoice.currency; // rate currency
@@ -93,9 +85,6 @@ export function MemberInvoiceEditor({
     [adjustments]
   );
   const grandTotal = Math.round((baseTotal + adjTotal) * 100) / 100;
-
-  const showFx = paymentCurrency && paymentCurrency !== currency;
-  const converted = showFx && fxRate != null ? grandTotal * fxRate : null;
 
   function patchAdj(key: string, p: Partial<AdjRow>) {
     setAdjustments((prev) => prev.map((r) => (r.key === key ? { ...r, ...p } : r)));
@@ -296,25 +285,7 @@ export function MemberInvoiceEditor({
                   {formatCurrency(grandTotal, currency)}
                 </span>
               </div>
-              {showFx && (
-                <div className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500">
-                  {converted != null ? (
-                    <>
-                      You&apos;re paid in {paymentCurrency}: ≈{" "}
-                      <span className="font-medium text-ink-700">
-                        {formatCurrency(converted, paymentCurrency!)}
-                      </span>{" "}
-                      at today&apos;s indicative rate. The final amount depends on the
-                      exchange rate on your transfer day.
-                    </>
-                  ) : (
-                    <>
-                      You&apos;re paid in {paymentCurrency}. The converted amount will be
-                      confirmed at the exchange rate on your transfer day.
-                    </>
-                  )}
-                </div>
-              )}
+              <TransferNote currency={currency} />
             </div>
           </div>
         </CardBody>

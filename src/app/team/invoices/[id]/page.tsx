@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { canTeamMemberEdit } from "@/lib/invoice";
-import { getFxRate } from "@/lib/fx";
 import { periodLabel, type Currency, type RateUnit, type TaskType } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
 import { Button } from "@/components/ui/Button";
@@ -110,19 +109,6 @@ export default async function TeamInvoiceDetail({
     }));
     const subList =
       (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
-    // Indicative rates for the distinct payout currencies in play.
-    const baseCcy = invoice.currency as Currency;
-    const payCcys = Array.from(
-      new Set(
-        subList
-          .map((s) => s.payment_currency)
-          .filter((c): c is Currency => !!c && c !== baseCcy)
-      )
-    );
-    const rateMap = new Map<Currency, number | null>();
-    await Promise.all(
-      payCcys.map(async (c) => rateMap.set(c, await getFxRate(baseCcy, c)))
-    );
     submissions = subList
       .map((s) => ({
         id: s.id,
@@ -131,13 +117,6 @@ export default async function TeamInvoiceDetail({
         total: Number(s.total),
         currency: s.currency as Currency,
         returnNote: s.return_note,
-        paymentCurrency: (s.payment_currency ?? null) as Currency | null,
-        indicativeRate:
-          s.payment_currency && s.payment_currency !== s.currency
-            ? rateMap.get(s.payment_currency as Currency) ?? null
-            : null,
-        fxRate: s.fx_rate != null ? Number(s.fx_rate) : null,
-        fxRateDate: s.fx_rate_date,
       }))
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   } else {
@@ -148,15 +127,6 @@ export default async function TeamInvoiceDetail({
       .order("sort_order");
     rates = (rateRows as TeamMemberRate[]) ?? [];
   }
-
-  // Payout FX for individuals: their invoice is in `currency`; if they're paid
-  // in another currency, show an indicative conversion.
-  const paymentCurrency = (tm?.payment_currency ?? null) as Currency | null;
-  const rateCurrency = invoice.currency as Currency;
-  const fxRate =
-    !isSupplier && paymentCurrency && paymentCurrency !== rateCurrency
-      ? await getFxRate(rateCurrency, paymentCurrency)
-      : null;
 
   return (
     <>
@@ -205,8 +175,6 @@ export default async function TeamInvoiceDetail({
                 name: tm?.name ?? invoice.display_name,
                 fixed_salary: tm?.fixed_salary ?? null,
               }}
-              paymentCurrency={paymentCurrency}
-              fxRate={fxRate}
             />
           )}
           {invoice.status === "draft" && (
@@ -239,13 +207,7 @@ export default async function TeamInvoiceDetail({
               Download / Print
             </Button>
           </div>
-          <InvoiceDocument
-            invoice={invoice}
-            items={items}
-            teamMember={tm}
-            paymentCurrency={paymentCurrency}
-            fxRate={fxRate}
-          />
+          <InvoiceDocument invoice={invoice} items={items} teamMember={tm} />
         </>
       )}
     </>

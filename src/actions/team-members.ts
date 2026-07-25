@@ -28,7 +28,6 @@ export interface TeamMemberInput {
   head_of_department: string | null;
   payment_details: string | null;
   currency: Currency;
-  payment_currency: Currency | null;
   fixed_salary: number | null;
   subjects: string[];
   rates: RateInput[];
@@ -116,7 +115,6 @@ export async function createTeamMember(
       head_of_department: input.head_of_department,
       payment_details: input.payment_details,
       currency: input.currency,
-      payment_currency: input.payment_currency,
       fixed_salary: input.fixed_salary,
       subjects: input.subjects,
       use_hr_name: true,
@@ -179,7 +177,6 @@ export async function updateTeamMember(
       head_of_department: input.head_of_department,
       payment_details: input.payment_details,
       currency: input.currency,
-      payment_currency: input.payment_currency,
       fixed_salary: input.fixed_salary,
       subjects: input.subjects,
     })

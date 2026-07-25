@@ -53,7 +53,6 @@ export default async function EditSupplier({
     rate_amount: Number(m.rate_amount),
     rate_descriptor: m.rate_descriptor,
     rate_task: (m.rate_task ?? null) as TaskType | null,
-    payment_currency: m.payment_currency,
   }));
 
   const loginRows = memberList.map((m) => ({

@@ -1,6 +1,7 @@
-import { RATE_UNIT_LABELS, periodLabel, type Currency } from "@/lib/constants";
+import { RATE_UNIT_LABELS, periodLabel } from "@/lib/constants";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { MemberStatusBadge } from "@/components/MemberStatusBadge";
+import { TransferNote } from "@/components/TransferNote";
 import type { SupplierMemberInvoice, SupplierMemberInvoiceItem } from "@/lib/types";
 
 /**
@@ -11,18 +12,12 @@ export function MemberPaySummary({
   invoice,
   items,
   supplierName,
-  paymentCurrency,
-  fxRate,
 }: {
   invoice: SupplierMemberInvoice;
   items: SupplierMemberInvoiceItem[];
   supplierName: string;
-  paymentCurrency: Currency | null;
-  fxRate: number | null;
 }) {
   const currency = invoice.currency;
-  const showFx = paymentCurrency && paymentCurrency !== currency;
-  const converted = showFx && fxRate != null ? invoice.total * fxRate : null;
 
   return (
     <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-card sm:p-8">
@@ -73,34 +68,7 @@ export function MemberPaySummary({
         </span>
       </div>
 
-      {showFx && (
-        <div className="mt-4 rounded-xl bg-ink-50 px-4 py-3 text-xs text-ink-500">
-          {invoice.fx_rate != null ? (
-            <>
-              Paid in {paymentCurrency}:{" "}
-              <span className="font-medium text-ink-700">
-                {formatCurrency(invoice.total * Number(invoice.fx_rate), paymentCurrency!)}
-              </span>{" "}
-              at the recorded rate ({formatNumber(Number(invoice.fx_rate))}
-              {invoice.fx_rate_date ? `, ${invoice.fx_rate_date}` : ""}).
-            </>
-          ) : converted != null ? (
-            <>
-              Paid in {paymentCurrency}: ≈{" "}
-              <span className="font-medium text-ink-700">
-                {formatCurrency(converted, paymentCurrency!)}
-              </span>{" "}
-              at today&apos;s indicative rate. The final amount depends on the exchange rate on
-              your transfer day.
-            </>
-          ) : (
-            <>
-              Paid in {paymentCurrency}. The converted amount is confirmed at the exchange rate
-              on your transfer day.
-            </>
-          )}
-        </div>
-      )}
+      <TransferNote currency={currency} className="mt-4" />
 
       {invoice.notes && (
         <div className="mt-5 border-t border-ink-100 pt-4">

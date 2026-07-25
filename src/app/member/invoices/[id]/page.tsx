@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getFxRate } from "@/lib/fx";
-import { periodLabel, type Currency } from "@/lib/constants";
+import { periodLabel } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
 import { Alert } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -68,13 +67,6 @@ export default async function MemberInvoiceDetail({
     rate_descriptor: member?.rate_descriptor ?? null,
   };
 
-  const rateCurrency = invoice.currency as Currency;
-  const paymentCurrency = (member?.payment_currency ?? null) as Currency | null;
-  const fxRate =
-    paymentCurrency && paymentCurrency !== rateCurrency
-      ? await getFxRate(rateCurrency, paymentCurrency)
-      : null;
-
   const editable = invoice.status === "draft" || invoice.status === "returned";
 
   return (
@@ -100,8 +92,6 @@ export default async function MemberInvoiceDetail({
             initialItems={items}
             pay={pay}
             supplierName={supplierName}
-            paymentCurrency={paymentCurrency}
-            fxRate={fxRate}
           />
           {invoice.status === "draft" && (
             <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
@@ -124,13 +114,7 @@ export default async function MemberInvoiceDetail({
               ? "This month is locked by your leader and can no longer be edited."
               : "This has been sent to your leader. You'll be able to edit again only if it's sent back."}
           </Alert>
-          <MemberPaySummary
-            invoice={invoice}
-            items={items}
-            supplierName={supplierName}
-            paymentCurrency={paymentCurrency}
-            fxRate={fxRate}
-          />
+          <MemberPaySummary invoice={invoice} items={items} supplierName={supplierName} />
         </>
       )}
     </>

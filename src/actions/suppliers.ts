@@ -33,7 +33,6 @@ export interface RosterPersonInput {
   rate_amount: number;
   rate_descriptor: string | null;
   rate_task: TaskType | null;
-  payment_currency: Currency | null;
 }
 
 function apiKeyError(msg: string) {
@@ -200,7 +199,6 @@ export async function saveRoster(
       rate_amount: p.pay_type === "rate" ? p.rate_amount || 0 : 0,
       rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor : null,
       rate_task: p.pay_type === "rate" ? p.rate_task : null,
-      payment_currency: p.payment_currency,
     };
 
     if (p.id) {

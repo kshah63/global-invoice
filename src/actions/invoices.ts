@@ -231,25 +231,6 @@ export async function deleteInvoice(formData: FormData) {
   redirect("/team/invoices");
 }
 
-// --- HR: record the actual payout FX rate ---------------------------------
-
-export async function recordInvoiceFx(
-  invoiceId: string,
-  rate: number | null,
-  date: string | null
-): Promise<{ error?: string }> {
-  const session = await getSession();
-  if (!session || session.profile.role !== "hr") return { error: "Not allowed." };
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("invoices")
-    .update({ fx_rate: rate, fx_rate_date: date || null })
-    .eq("id", invoiceId);
-  if (error) return { error: error.message };
-  revalidatePath(`/hr/invoices/${invoiceId}`);
-  return {};
-}
-
 // --- HR: status transitions -----------------------------------------------
 
 export async function hrInvoiceTransition(formData: FormData) {
