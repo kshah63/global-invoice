@@ -55,7 +55,7 @@ export function TeamMemberForm({
   const [email, setEmail] = useState(initial?.email ?? "");
   const [employeeId, setEmployeeId] = useState(initial?.employee_id ?? "");
   const [password, setPassword] = useState("");
-  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(false);
   const [whatsapp, setWhatsapp] = useState(initial?.whatsapp_number ?? "");
   const [dateJoined, setDateJoined] = useState(initial?.date_joined ?? "");
   const [nationality, setNationality] = useState(initial?.nationality ?? "");
