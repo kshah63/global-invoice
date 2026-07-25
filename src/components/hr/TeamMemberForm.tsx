@@ -394,7 +394,7 @@ export function TeamMemberForm({
                     Email them a link to set their own password
                   </span>
                   <span className="mt-0.5 block text-ink-500">
-                    Recommended — no need to share a password manually. They&apos;ll
+                    No need to share a password manually. They&apos;ll
                     log in with their employee ID afterwards.
                   </span>
                 </span>
