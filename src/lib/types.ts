@@ -126,6 +126,7 @@ export interface InvoiceLineItem {
   supplier_member_id: string | null;
   worked_by_name: string | null;
   source_member_invoice_id: string | null; // set when imported from a member invoice
+  receipt_path: string | null; // storage path for an expense-claim receipt
 }
 
 // --- Suppliers ------------------------------------------------------------

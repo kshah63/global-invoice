@@ -14,6 +14,7 @@ import { computeInvoiceTotals, computeLineTotal } from "@/lib/invoice";
 import { formatCurrency } from "@/lib/format";
 import type { Invoice, InvoiceLineItem } from "@/lib/types";
 import { saveSupplierInvoice, submitInvoiceById, type SaveSupplierItem } from "@/actions/invoices";
+import { uploadReceipt } from "@/actions/receipts";
 import { pullMemberInvoices } from "@/actions/member-invoices";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -27,7 +28,7 @@ export interface RosterPerson {
   rates: { id: string; descriptor: string; unit: RateUnit; amount: number; task: TaskType | null }[];
 }
 
-type Kind = "person" | "adjustment";
+type Kind = "person" | "adjustment" | "expense";
 type Direction = "add" | "subtract";
 interface Row {
   key: string;
@@ -39,11 +40,14 @@ interface Row {
   rate_descriptor: string;
   sessions: string;
   hours: string;
-  amount: string; // adjustment lines: positive magnitude (sign comes from `direction`)
+  amount: string; // adjustment/expense lines: positive magnitude (sign comes from `direction`)
   direction: Direction; // adjustment lines only
   task: TaskType;
-  note: string; // adjustment lines: the (required) description
+  note: string; // adjustment/expense lines: the (required) description
   source_member_invoice_id: string; // set when imported from a member submission ("" otherwise)
+  receipt_path: string; // expense lines: storage path of the uploaded receipt ("" = none)
+  receipt_name: string; // expense lines: filename to show once attached
+  item_id: string; // persisted line-item id (for the receipt View link); "" when new
 }
 
 let seq = 0;
@@ -58,6 +62,31 @@ const newKey = () => `s-${seq++}-${Math.round(Math.random() * 1e6)}`;
 function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
   const amt = Number(it.rate_amount ?? 0);
   const fixed = it.rate_unit === "fixed";
+
+  // Expense claims come first: they're fixed-unit lines with task 'misc_expenses'
+  // and would otherwise be misread as adjustments below.
+  if (it.task === "misc_expenses") {
+    return {
+      key: newKey(),
+      kind: "expense",
+      supplier_member_id: "",
+      rate_id: "",
+      rate_unit: "fixed",
+      rate_amount: amt,
+      rate_descriptor: it.rate_descriptor ?? "",
+      sessions: "0",
+      hours: "0",
+      amount: String(Math.abs(amt)),
+      direction: "add",
+      task: "misc_expenses",
+      note: it.note ?? "",
+      source_member_invoice_id: it.source_member_invoice_id ?? "",
+      receipt_path: it.receipt_path ?? "",
+      receipt_name: it.receipt_path ? "Receipt attached" : "",
+      item_id: it.id,
+    };
+  }
+
   const isAdjustment = it.task === ADJUSTMENT_TASK || (!it.supplier_member_id && fixed);
 
   if (isAdjustment) {
@@ -76,6 +105,9 @@ function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
       task: ADJUSTMENT_TASK,
       note: it.note ?? "",
       source_member_invoice_id: it.source_member_invoice_id ?? "",
+      receipt_path: "",
+      receipt_name: "",
+      item_id: it.id,
     };
   }
 
@@ -104,6 +136,9 @@ function toRow(it: InvoiceLineItem, roster: RosterPerson[]): Row {
     task: it.task,
     note: it.note ?? "",
     source_member_invoice_id: it.source_member_invoice_id ?? "",
+    receipt_path: "",
+    receipt_name: "",
+    item_id: it.id,
   };
 }
 
@@ -131,6 +166,7 @@ export function SupplierInvoiceEditor({
     initialItems.map((it) => toRow(it, roster))
   );
   const [busy, setBusy] = useState<null | "save" | "submit" | "pull">(null);
+  const [receiptBusy, setReceiptBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -144,6 +180,10 @@ export function SupplierInvoiceEditor({
     if (r.kind === "adjustment") {
       const mag = Math.abs(Number(r.amount) || 0);
       return r.direction === "subtract" ? -mag : mag;
+    }
+    if (r.kind === "expense") {
+      // An expense claim always adds to the invoice.
+      return Math.abs(Number(r.amount) || 0);
     }
     return computeLineTotal({
       rate_unit: r.rate_unit,
@@ -181,6 +221,9 @@ export function SupplierInvoiceEditor({
         task: "teaching",
         note: "",
         source_member_invoice_id: "",
+        receipt_path: "",
+        receipt_name: "",
+        item_id: "",
       },
     ]);
   }
@@ -202,11 +245,57 @@ export function SupplierInvoiceEditor({
         task: ADJUSTMENT_TASK,
         note: "",
         source_member_invoice_id: "",
+        receipt_path: "",
+        receipt_name: "",
+        item_id: "",
+      },
+    ]);
+  }
+  function addExpenseLine() {
+    setRows((prev) => [
+      ...prev,
+      {
+        key: newKey(),
+        kind: "expense",
+        supplier_member_id: "",
+        rate_id: "",
+        rate_unit: "fixed",
+        rate_amount: 0,
+        rate_descriptor: "",
+        sessions: "0",
+        hours: "0",
+        amount: "",
+        direction: "add",
+        task: "misc_expenses",
+        note: "",
+        source_member_invoice_id: "",
+        receipt_path: "",
+        receipt_name: "",
+        item_id: "",
       },
     ]);
   }
   function removeRow(key: string) {
     setRows((prev) => prev.filter((r) => r.key !== key));
+  }
+
+  async function onReceiptFile(key: string, file: File | null) {
+    if (!file) return;
+    setError(null);
+    setNotice(null);
+    setReceiptBusy(key);
+    const fd = new FormData();
+    fd.append("invoiceId", invoice.id);
+    fd.append("file", file);
+    const res = await uploadReceipt(fd);
+    if (res.error) {
+      setError(res.error);
+    } else {
+      // A freshly uploaded file has no persisted line-item id yet, so clear the
+      // View link until the draft is saved.
+      patch(key, { receipt_path: res.path ?? "", receipt_name: res.name ?? "Receipt", item_id: "" });
+    }
+    setReceiptBusy(null);
   }
 
   function changePerson(key: string, personId: string) {
@@ -230,6 +319,25 @@ export function SupplierInvoiceEditor({
 
   function buildItems(): SaveSupplierItem[] {
     return rows.map((r, i) => {
+      if (r.kind === "expense") {
+        const magnitude = Math.abs(Number(r.amount) || 0);
+        const description = r.note.trim();
+        return {
+          centre: "MathVision",
+          task: "misc_expenses",
+          note: description || null,
+          sessions: 0,
+          hours: 0,
+          rate_id: null,
+          rate_descriptor: description || "Expense claim",
+          rate_unit: "fixed",
+          rate_amount: magnitude,
+          sort_order: i,
+          supplier_member_id: null,
+          source_member_invoice_id: null,
+          receipt_path: r.receipt_path || null,
+        };
+      }
       if (r.kind === "adjustment") {
         const mag = Math.abs(Number(r.amount) || 0);
         const signed = r.direction === "subtract" ? -mag : mag;
@@ -284,6 +392,15 @@ export function SupplierInvoiceEditor({
       setError("Every adjustment needs a description and an amount greater than zero.");
       return false;
     }
+    // expense claims must have a description and a positive amount (the receipt
+    // is enforced at submit so a draft can be saved while it's being gathered).
+    const badExp = rows.find(
+      (r) => r.kind === "expense" && (!r.note.trim() || !(Number(r.amount) > 0))
+    );
+    if (badExp) {
+      setError("Every expense claim needs a description and an amount greater than zero.");
+      return false;
+    }
     const cleanTax = Math.min(100, Math.max(0, Math.round((Number(taxRate) || 0) * 1000) / 1000));
     const res = await saveSupplierInvoice({
       invoiceId: invoice.id,
@@ -328,6 +445,12 @@ export function SupplierInvoiceEditor({
       setError("Add at least one line item before submitting.");
       return;
     }
+    // Hard gate: no expense claim can be submitted without a receipt.
+    const noReceipt = rows.find((r) => r.kind === "expense" && !r.receipt_path);
+    if (noReceipt) {
+      setError("Attach a receipt to every expense claim before submitting.");
+      return;
+    }
     setBusy("submit");
     if (await doSave()) {
       const res = await submitInvoiceById(invoice.id);
@@ -356,7 +479,7 @@ export function SupplierInvoiceEditor({
       <Card>
         <CardHeader
           title={<span className="font-mono text-base tnum">{invoice.invoice_number}</span>}
-          description="Add a line per person, plus any adjustments (e.g. an unpaid day off)."
+          description="Add a line per person, expense claims (with a receipt), and any adjustments."
           action={<StatusPill status={invoice.status} />}
         />
         <CardBody className="grid gap-4 sm:grid-cols-2">
@@ -392,6 +515,9 @@ export function SupplierInvoiceEditor({
               <Button type="button" size="sm" variant="brand-soft" onClick={addPersonLine}>
                 + Person line
               </Button>
+              <Button type="button" size="sm" variant="neutral" onClick={addExpenseLine}>
+                + Expense claim
+              </Button>
               <Button type="button" size="sm" variant="neutral" onClick={addAdjustmentLine}>
                 + Adjustment
               </Button>
@@ -413,7 +539,11 @@ export function SupplierInvoiceEditor({
               <div key={row.key} className="rounded-xl border border-ink-200 bg-ink-50/40 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-ink-400">
-                    {row.kind === "person" ? `Person line ${i + 1}` : `Adjustment ${i + 1}`}
+                    {row.kind === "person"
+                      ? `Person line ${i + 1}`
+                      : row.kind === "expense"
+                        ? `Expense claim ${i + 1}`
+                        : `Adjustment ${i + 1}`}
                   </span>
                   <button
                     type="button"
@@ -500,6 +630,83 @@ export function SupplierInvoiceEditor({
                           </div>
                         </>
                       )}
+                      <div>
+                        <Label>Line total</Label>
+                        <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
+                          {formatCurrency(total, currency)}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : row.kind === "expense" ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Description" required>
+                        <Input
+                          value={row.note}
+                          onChange={(e) => patch(row.key, { note: e.target.value })}
+                          placeholder="e.g. Printing for March mock papers"
+                        />
+                      </Field>
+                      <Field
+                        label={`Amount (${currency})`}
+                        hint="What was spent — a positive number."
+                      >
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={row.amount}
+                          onChange={(e) => patch(row.key, { amount: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label>
+                          Receipt <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="mt-1 flex flex-wrap items-center gap-3">
+                          <label className="inline-flex cursor-pointer items-center rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50">
+                            {receiptBusy === row.key
+                              ? "Uploading…"
+                              : row.receipt_path
+                                ? "Replace receipt"
+                                : "Upload receipt"}
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,application/pdf"
+                              className="hidden"
+                              disabled={receiptBusy === row.key}
+                              onChange={(e) =>
+                                onReceiptFile(row.key, e.target.files?.[0] ?? null)
+                              }
+                            />
+                          </label>
+                          {row.receipt_path ? (
+                            <span className="inline-flex items-center gap-1.5 text-sm text-teal-700">
+                              <span aria-hidden>✓</span>
+                              <span className="max-w-[12rem] truncate">
+                                {row.receipt_name || "Attached"}
+                              </span>
+                              {row.item_id && (
+                                <a
+                                  href={`/receipts/${row.item_id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-brand-600 underline"
+                                >
+                                  View
+                                </a>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-ink-400">
+                              PDF or image, up to 10 MB. Required to submit.
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <div>
                         <Label>Line total</Label>
                         <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">

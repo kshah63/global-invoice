@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth";
 import { generateInvoiceNumber, isValidHrTransition, type HrAction } from "@/lib/invoice";
 import type { Centre, RateUnit, TaskType } from "@/lib/constants";
@@ -156,6 +157,7 @@ export interface SaveSupplierItem {
   sort_order: number;
   supplier_member_id: string | null;
   source_member_invoice_id?: string | null; // set for lines imported from a member invoice
+  receipt_path?: string | null; // expense-claim receipt (storage path)
 }
 
 export interface SaveSupplierInvoiceInput {
@@ -202,6 +204,36 @@ export async function submitInvoiceById(
 
   if (!items || items.length === 0) {
     return { error: "Add at least one line item before submitting." };
+  }
+
+  // Hard gate: every expense claim needs a description and a receipt on file.
+  const { data: expenseLines } = await supabase
+    .from("invoice_line_items")
+    .select("id, note, receipt_path")
+    .eq("invoice_id", id)
+    .eq("task", "misc_expenses");
+  if (expenseLines && expenseLines.length > 0) {
+    const incomplete = expenseLines.find(
+      (l) => !(l.note ?? "").trim() || !(l.receipt_path ?? "").trim()
+    );
+    if (incomplete) {
+      return {
+        error: "Every expense claim needs a description and a receipt before you can submit.",
+      };
+    }
+    // Verify each referenced receipt actually exists in storage (guards against
+    // a tampered or since-deleted path in the client snapshot).
+    const admin = createAdminClient();
+    for (const l of expenseLines) {
+      const { error: sErr } = await admin.storage
+        .from("receipts")
+        .createSignedUrl(l.receipt_path as string, 60);
+      if (sErr) {
+        return {
+          error: "A receipt file is missing from storage — re-upload it and try again.",
+        };
+      }
+    }
   }
 
   // submitted_at is set by the DB status-timestamp trigger.

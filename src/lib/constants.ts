@@ -97,7 +97,7 @@ export const TASK_LABELS: Record<TaskType, string> = {
   consultancy: "Consultancy",
   phone_ambassador: "Phone Ambassador",
   administrative_services: "Administrative Services",
-  misc_expenses: "Misc. Expenses",
+  misc_expenses: "Expense claim",
   adjustment: "Adjustment",
 };
 

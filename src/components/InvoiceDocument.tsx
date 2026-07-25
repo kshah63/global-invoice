@@ -159,7 +159,19 @@ export function InvoiceDocument({
                         : it.centre}
                   </td>
                   <td className="py-2.5 pr-3">{TASK_LABELS[it.task]}</td>
-                  <td className="py-2.5 pr-3 text-ink-600">{it.note || "—"}</td>
+                  <td className="py-2.5 pr-3 text-ink-600">
+                    {it.note || "—"}
+                    {it.receipt_path && (
+                      <a
+                        href={`/receipts/${it.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-0.5 block text-xs font-medium text-brand-600 underline print:text-ink-600 print:no-underline"
+                      >
+                        📎 Receipt
+                      </a>
+                    )}
+                  </td>
                   <td className="py-2.5 pr-3 text-right tnum">
                     {fixed ? "—" : formatNumber(it.sessions)}
                   </td>
