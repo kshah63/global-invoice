@@ -15,8 +15,8 @@ export function TransferNote({
   if (currency === "SGD") return null;
   return (
     <div className={`rounded-xl bg-ink-50 px-4 py-3 text-xs text-ink-500 ${className}`}>
-      Payment is sent in <span className="font-medium text-ink-700">SGD</span>, converted from{" "}
-      {currency} at OCBC&apos;s exchange rate on the date of transfer.
+      Payment is sent in <span className="font-medium text-ink-700">SGD</span>, converted at
+      OCBC&apos;s exchange rate on the date of transfer.
     </div>
   );
 }
