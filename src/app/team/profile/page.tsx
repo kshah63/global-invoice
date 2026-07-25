@@ -92,7 +92,6 @@ export default async function TeamProfile({
                 />
                 <Detail label="Work location" value={tm.work_location} />
                 <Detail label="Nationality" value={tm.nationality} />
-                <Detail label="Head of department" value={tm.head_of_department} />
                 <Detail label="Date joined" value={formatDate(tm.date_joined)} />
                 <Detail
                   label="Fixed salary"

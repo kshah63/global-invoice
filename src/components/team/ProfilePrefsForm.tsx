@@ -65,9 +65,9 @@ export function ProfilePrefsForm({
       </Field>
 
       <Field
-        label="Ship-to address"
+        label="From address"
         htmlFor="ship_to_address"
-        hint="This appears on every invoice you create."
+        hint="Shown under “From” on every invoice you create. HR set the initial one."
       >
         <Textarea
           id="ship_to_address"

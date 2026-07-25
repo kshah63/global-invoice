@@ -60,7 +60,7 @@ export function TeamMemberForm({
   const [dateJoined, setDateJoined] = useState(initial?.date_joined ?? "");
   const [nationality, setNationality] = useState(initial?.nationality ?? "");
   const [workLocation, setWorkLocation] = useState(initial?.work_location ?? "");
-  const [hod, setHod] = useState(initial?.head_of_department ?? "");
+  const [shipTo, setShipTo] = useState(initial?.ship_to_address ?? "");
   const [paymentDetails, setPaymentDetails] = useState(
     initial?.payment_details ?? ""
   );
@@ -107,7 +107,7 @@ export function TeamMemberForm({
       date_joined: dateJoined || null,
       nationality: nationality.trim() || null,
       work_location: workLocation.trim() || null,
-      head_of_department: hod.trim() || null,
+      ship_to_address: shipTo.trim() || null,
       payment_details: paymentDetails.trim() || null,
       currency,
       fixed_salary: fixedSalary.trim() ? Number(fixedSalary) : null,
@@ -228,15 +228,22 @@ export function TeamMemberForm({
           <Field label="Work location">
             <Input value={workLocation} onChange={(e) => setWorkLocation(e.target.value)} />
           </Field>
-          <Field label="Head of department">
-            <Input value={hod} onChange={(e) => setHod(e.target.value)} />
-          </Field>
           <Field label="Subjects" hint="Select all that apply.">
             <MultiSelect
               options={[...SUBJECT_OPTIONS]}
               value={subjects}
               onChange={setSubjects}
               placeholder="Select subjects"
+            />
+          </Field>
+          <Field
+            label="From address"
+            hint="Shown under “From” on their invoice. They can update it themselves later."
+          >
+            <Textarea
+              value={shipTo}
+              onChange={(e) => setShipTo(e.target.value)}
+              placeholder="Address to appear on the invoice"
             />
           </Field>
           <Field label="Payment details">

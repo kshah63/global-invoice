@@ -62,7 +62,7 @@ export default async function EditTeamMember({
           date_joined: tm.date_joined,
           nationality: tm.nationality,
           work_location: tm.work_location,
-          head_of_department: tm.head_of_department,
+          ship_to_address: tm.ship_to_address,
           payment_details: tm.payment_details,
           currency: tm.currency,
           fixed_salary: tm.fixed_salary,

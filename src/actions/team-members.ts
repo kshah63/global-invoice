@@ -25,7 +25,7 @@ export interface TeamMemberInput {
   date_joined: string | null;
   nationality: string | null;
   work_location: string | null;
-  head_of_department: string | null;
+  ship_to_address: string | null;
   payment_details: string | null;
   currency: Currency;
   fixed_salary: number | null;
@@ -112,7 +112,7 @@ export async function createTeamMember(
       date_joined: input.date_joined,
       nationality: input.nationality,
       work_location: input.work_location,
-      head_of_department: input.head_of_department,
+      ship_to_address: input.ship_to_address,
       payment_details: input.payment_details,
       currency: input.currency,
       fixed_salary: input.fixed_salary,
@@ -174,7 +174,7 @@ export async function updateTeamMember(
       date_joined: input.date_joined,
       nationality: input.nationality,
       work_location: input.work_location,
-      head_of_department: input.head_of_department,
+      ship_to_address: input.ship_to_address,
       payment_details: input.payment_details,
       currency: input.currency,
       fixed_salary: input.fixed_salary,
