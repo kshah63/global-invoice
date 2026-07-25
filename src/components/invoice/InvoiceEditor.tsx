@@ -337,7 +337,7 @@ export function InvoiceEditor({
               onChange={(e) => setDisplayName(e.target.value)}
             />
           </Field>
-          <Field label="Ship-to address" htmlFor="ship_to">
+          <Field label="From address" htmlFor="ship_to">
             <Textarea
               id="ship_to"
               value={shipTo}

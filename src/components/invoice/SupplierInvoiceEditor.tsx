@@ -363,7 +363,7 @@ export function SupplierInvoiceEditor({
           <Field label="Name shown on invoice" hint="Defaults to the business name.">
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </Field>
-          <Field label="Ship-to address">
+          <Field label="From address">
             <Textarea
               value={shipTo}
               onChange={(e) => setShipTo(e.target.value)}
