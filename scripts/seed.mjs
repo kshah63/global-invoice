@@ -132,7 +132,8 @@ async function ensureSupplier(profileId, fields) {
   return data.id;
 }
 
-async function ensureSupplierMember(supplierId, fields) {
+async function ensureSupplierMember(supplierId, fields, rates = []) {
+  let memberId;
   const { data: existing } = await admin
     .from("supplier_members")
     .select("id")
@@ -141,15 +142,23 @@ async function ensureSupplierMember(supplierId, fields) {
     .maybeSingle();
   if (existing) {
     await admin.from("supplier_members").update(fields).eq("id", existing.id);
-    return existing.id;
+    memberId = existing.id;
+  } else {
+    const { data, error } = await admin
+      .from("supplier_members")
+      .insert({ supplier_id: supplierId, ...fields })
+      .select("id")
+      .single();
+    if (error) throw error;
+    memberId = data.id;
   }
-  const { data, error } = await admin
-    .from("supplier_members")
-    .insert({ supplier_id: supplierId, ...fields })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return data.id;
+  await admin.from("supplier_member_rates").delete().eq("supplier_member_id", memberId);
+  if (rates.length) {
+    await admin.from("supplier_member_rates").insert(
+      rates.map((r, i) => ({ ...r, supplier_member_id: memberId, sort_order: i }))
+    );
+  }
+  return memberId;
 }
 
 async function ensureMemberInvoice(meta, items) {
@@ -453,17 +462,27 @@ async function main() {
     pay_type: "fixed",
     monthly_salary: 3000,
     payment_currency: "INR",
+    subjects: ["1 - 8 Maths"],
   });
-  // Omar: part-timer on an hourly RATE, paid in SGD (no login — leader inputs).
-  const omar = await ensureSupplierMember(bright, {
-    name: "Omar Ali",
-    code: "3002",
-    pay_type: "rate",
-    rate_unit: "per_hour",
-    rate_amount: 80,
-    rate_descriptor: "Consultancy",
-    rate_task: "consultancy",
-  });
+  // Omar: part-timer with TWO rates (teaching + teacher training), paid in SGD
+  // (no login — leader inputs on his behalf).
+  const omar = await ensureSupplierMember(
+    bright,
+    {
+      name: "Omar Ali",
+      code: "3002",
+      pay_type: "rate",
+      rate_unit: "per_hour",
+      rate_amount: 80,
+      rate_descriptor: "Weekday teaching",
+      rate_task: "teaching",
+      subjects: ["9 - 10 Maths", "11 - 12 Maths"],
+    },
+    [
+      { descriptor: "Weekday teaching", unit: "per_hour", amount: 80, task: "teaching" },
+      { descriptor: "Teacher training", unit: "per_hour", amount: 100, task: "teacher_training" },
+    ]
+  );
 
   // Jane's own draft for July — salary line + an adjustment. She signs in to send it.
   await ensureMemberInvoice(
@@ -499,7 +518,7 @@ async function main() {
     [
       { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "fixed_salary", note: null, sessions: 0, hours: 0, rate_descriptor: "Monthly salary", rate_unit: "fixed", rate_amount: 3000 },
       { supplier_member_id: jane, worked_by_name: "Jane Tan", centre: "MathVision", task: "adjustment", note: "Unpaid day off", sessions: 0, hours: 0, rate_descriptor: "Unpaid day off", rate_unit: "fixed", rate_amount: -40 },
-      { supplier_member_id: omar, worked_by_name: "Omar Ali", centre: "MathVision", task: "consultancy", note: "Curriculum review", sessions: 0, hours: 5, rate_descriptor: "Consultancy", rate_unit: "per_hour", rate_amount: 80 },
+      { supplier_member_id: omar, worked_by_name: "Omar Ali", centre: "MathVision", task: "teaching", note: "Weekday classes", sessions: 0, hours: 5, rate_descriptor: "Weekday teaching", rate_unit: "per_hour", rate_amount: 80 },
       { supplier_member_id: null, worked_by_name: null, centre: "MathVision", task: "misc_expenses", note: "Printing", sessions: 0, hours: 0, rate_descriptor: "Printing costs", rate_unit: "fixed", rate_amount: 120 },
     ]
   );

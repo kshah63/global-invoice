@@ -23,16 +23,22 @@ export interface SupplierInput {
   payment_details: string | null;
 }
 
+export interface RosterRateInput {
+  id: string | null;
+  descriptor: string | null;
+  unit: RateUnit;
+  amount: number;
+  task: TaskType | null;
+}
+
 export interface RosterPersonInput {
   id: string | null;
   name: string;
   code: string;
   pay_type: PayType;
   monthly_salary: number | null;
-  rate_unit: RateUnit;
-  rate_amount: number;
-  rate_descriptor: string | null;
-  rate_task: TaskType | null;
+  subjects: string[];
+  rates: RosterRateInput[]; // rate members only (1+); ignored for fixed salary
 }
 
 function apiKeyError(msg: string) {
@@ -175,43 +181,71 @@ export async function saveRoster(
     await supabase.from("supplier_members").delete().in("id", toDelete);
   }
 
-  // Validate pay config.
+  // Validate pay config: fixed needs a salary; rate needs at least one rate.
   const badPay = cleaned.find(
     (p) =>
       (p.pay_type === "fixed" && !((p.monthly_salary ?? 0) > 0)) ||
-      (p.pay_type === "rate" && !(p.rate_amount > 0))
+      (p.pay_type === "rate" && !p.rates.some((r) => (r.amount ?? 0) > 0))
   );
   if (badPay) {
     return {
-      error: `Set a ${badPay.pay_type === "fixed" ? "monthly salary" : "rate amount"} for "${badPay.name || "a person"}".`,
+      error: `Set a ${badPay.pay_type === "fixed" ? "monthly salary" : "rate"} for "${badPay.name || "a person"}".`,
     };
   }
 
   for (let i = 0; i < cleaned.length; i++) {
     const p = cleaned[i];
+    // Mirror the first rate onto the member row as a fallback for anything that
+    // still reads a single rate; the authoritative list lives in
+    // supplier_member_rates.
+    const first = p.pay_type === "rate" ? p.rates.find((r) => (r.amount ?? 0) > 0) : null;
     const payFields = {
       name: p.name.trim(),
       code: p.code.trim(),
       sort_order: i,
+      subjects: p.subjects ?? [],
       pay_type: p.pay_type,
       monthly_salary: p.pay_type === "fixed" ? p.monthly_salary ?? 0 : null,
-      rate_unit: p.pay_type === "rate" ? p.rate_unit : "per_hour",
-      rate_amount: p.pay_type === "rate" ? p.rate_amount || 0 : 0,
-      rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor : null,
-      rate_task: p.pay_type === "rate" ? p.rate_task : null,
+      rate_unit: first ? first.unit : "per_hour",
+      rate_amount: first ? first.amount || 0 : 0,
+      rate_descriptor: first ? first.descriptor?.trim() || null : null,
+      rate_task: first ? first.task : null,
     };
 
-    if (p.id) {
+    let memberId = p.id;
+    if (memberId) {
       const { error } = await supabase
         .from("supplier_members")
         .update(payFields)
-        .eq("id", p.id);
+        .eq("id", memberId);
       if (error) return { error: rosterError(error) };
     } else {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("supplier_members")
-        .insert({ supplier_id: supplierId, ...payFields });
-      if (error) return { error: rosterError(error) };
+        .insert({ supplier_id: supplierId, ...payFields })
+        .select("id")
+        .single();
+      if (error || !data) return { error: rosterError(error) };
+      memberId = data.id;
+    }
+
+    // Replace this member's rate set (rate members only).
+    await supabase.from("supplier_member_rates").delete().eq("supplier_member_id", memberId);
+    if (p.pay_type === "rate") {
+      const rateRows = p.rates
+        .filter((r) => (r.amount ?? 0) > 0)
+        .map((r, ri) => ({
+          supplier_member_id: memberId,
+          descriptor: r.descriptor?.trim() || "Work",
+          unit: r.unit,
+          amount: r.amount || 0,
+          task: r.task,
+          sort_order: ri,
+        }));
+      if (rateRows.length) {
+        const { error } = await supabase.from("supplier_member_rates").insert(rateRows);
+        if (error) return { error: rosterError(error) };
+      }
     }
   }
 

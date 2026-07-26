@@ -12,7 +12,7 @@ import { MemberLoginsCard } from "@/components/hr/MemberLoginsCard";
 import { SupplierPasswordCard } from "@/components/hr/SupplierPasswordCard";
 import { deleteSupplier } from "@/actions/suppliers";
 import type { RateUnit, TaskType } from "@/lib/constants";
-import type { SupplierMember, TeamMember } from "@/lib/types";
+import type { SupplierMember, SupplierMemberRate, TeamMember } from "@/lib/types";
 
 export const metadata = { title: "Edit Supplier" };
 
@@ -42,18 +42,51 @@ export default async function EditSupplier({
     .order("sort_order");
 
   const memberList = (memberRows as SupplierMember[]) ?? [];
+  const memberIds = memberList.map((m) => m.id);
 
-  const people = memberList.map((m) => ({
-    id: m.id,
-    name: m.name,
-    code: m.code,
-    pay_type: m.pay_type,
-    monthly_salary: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
-    rate_unit: m.rate_unit as RateUnit,
-    rate_amount: Number(m.rate_amount),
-    rate_descriptor: m.rate_descriptor,
-    rate_task: (m.rate_task ?? null) as TaskType | null,
-  }));
+  const { data: rateRows } = memberIds.length
+    ? await supabase
+        .from("supplier_member_rates")
+        .select("*")
+        .in("supplier_member_id", memberIds)
+        .order("sort_order")
+    : { data: [] as SupplierMemberRate[] };
+  const ratesByMember = new Map<string, SupplierMemberRate[]>();
+  ((rateRows as SupplierMemberRate[]) ?? []).forEach((r) => {
+    const arr = ratesByMember.get(r.supplier_member_id) ?? [];
+    arr.push(r);
+    ratesByMember.set(r.supplier_member_id, arr);
+  });
+
+  const people = memberList.map((m) => {
+    const rates = (ratesByMember.get(m.id) ?? []).map((r) => ({
+      id: r.id as string | null,
+      descriptor: r.descriptor as string | null,
+      unit: r.unit as RateUnit,
+      amount: Number(r.amount),
+      task: (r.task ?? null) as TaskType | null,
+    }));
+    // Fallback for a legacy rate member whose single rate hasn't been migrated
+    // into a rate row yet.
+    if (m.pay_type === "rate" && rates.length === 0 && Number(m.rate_amount) > 0) {
+      rates.push({
+        id: null,
+        descriptor: m.rate_descriptor,
+        unit: m.rate_unit as RateUnit,
+        amount: Number(m.rate_amount),
+        task: (m.rate_task ?? null) as TaskType | null,
+      });
+    }
+    return {
+      id: m.id,
+      name: m.name,
+      code: m.code,
+      pay_type: m.pay_type,
+      monthly_salary: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
+      subjects: m.subjects ?? [],
+      rates,
+    };
+  });
 
   const loginRows = memberList.map((m) => ({
     id: m.id,

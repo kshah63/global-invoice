@@ -6,6 +6,7 @@ import {
   CURRENCY_META,
   PAY_TYPES,
   PAY_TYPE_LABELS,
+  SUBJECT_OPTIONS,
   SUPPLIER_TASKS,
   TASK_LABELS,
   type Currency,
@@ -17,7 +18,19 @@ import { saveRoster, type RosterPersonInput } from "@/actions/suppliers";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Input, Label, Select } from "@/components/ui/Field";
+import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Alert } from "@/components/ui/Feedback";
+
+// Tasks a work rate can be for (expense claims aren't a per-session/hour rate).
+const RATE_TASKS = SUPPLIER_TASKS.filter((t) => t !== "misc_expenses");
+
+export interface RosterRateState {
+  id: string | null;
+  descriptor: string | null;
+  unit: RateUnit;
+  amount: number;
+  task: TaskType | null;
+}
 
 export interface RosterPersonState {
   id: string | null;
@@ -25,10 +38,8 @@ export interface RosterPersonState {
   code: string;
   pay_type: PayType;
   monthly_salary: number | null;
-  rate_unit: RateUnit;
-  rate_amount: number;
-  rate_descriptor: string | null;
-  rate_task: TaskType | null;
+  subjects: string[];
+  rates: RosterRateState[];
 }
 
 interface PersonRow extends RosterPersonState {
@@ -37,6 +48,10 @@ interface PersonRow extends RosterPersonState {
 
 let seq = 0;
 const key = () => `k-${seq++}-${Math.round(Math.random() * 1e6)}`;
+
+function emptyRate(): RosterRateState {
+  return { id: null, descriptor: "", unit: "per_hour", amount: 0, task: null };
+}
 
 export function RosterEditor({
   supplierId,
@@ -70,15 +85,44 @@ export function RosterEditor({
         code: "",
         pay_type: "fixed",
         monthly_salary: 0,
-        rate_unit: "per_hour",
-        rate_amount: 0,
-        rate_descriptor: "",
-        rate_task: null,
+        subjects: [],
+        rates: [],
       },
     ]);
   }
   function removePerson(k: string) {
     setPeople((prev) => prev.filter((r) => r.key !== k));
+  }
+  function changePayType(k: string, pay_type: PayType) {
+    setPeople((prev) =>
+      prev.map((r) => {
+        if (r.key !== k) return r;
+        // Switching to a rate: make sure there's at least one rate row to fill.
+        const rates = pay_type === "rate" && r.rates.length === 0 ? [emptyRate()] : r.rates;
+        return { ...r, pay_type, rates };
+      })
+    );
+  }
+  function patchRate(k: string, idx: number, p: Partial<RosterRateState>) {
+    setPeople((prev) =>
+      prev.map((r) =>
+        r.key === k
+          ? { ...r, rates: r.rates.map((rt, i) => (i === idx ? { ...rt, ...p } : rt)) }
+          : r
+      )
+    );
+  }
+  function addRate(k: string) {
+    setPeople((prev) =>
+      prev.map((r) => (r.key === k ? { ...r, rates: [...r.rates, emptyRate()] } : r))
+    );
+  }
+  function removeRate(k: string, idx: number) {
+    setPeople((prev) =>
+      prev.map((r) =>
+        r.key === k ? { ...r, rates: r.rates.filter((_, i) => i !== idx) } : r
+      )
+    );
   }
 
   async function onSave() {
@@ -91,10 +135,17 @@ export function RosterEditor({
       code: p.code.trim(),
       pay_type: p.pay_type,
       monthly_salary: p.pay_type === "fixed" ? Number(p.monthly_salary) || 0 : null,
-      rate_unit: p.rate_unit,
-      rate_amount: p.pay_type === "rate" ? Number(p.rate_amount) || 0 : 0,
-      rate_descriptor: p.pay_type === "rate" ? p.rate_descriptor?.trim() || null : null,
-      rate_task: p.pay_type === "rate" ? p.rate_task : null,
+      subjects: p.subjects,
+      rates:
+        p.pay_type === "rate"
+          ? p.rates.map((r) => ({
+              id: r.id,
+              descriptor: r.descriptor,
+              unit: r.unit,
+              amount: Number(r.amount) || 0,
+              task: r.task,
+            }))
+          : [],
     }));
     const res = await saveRoster(supplierId, payload);
     setSaving(false);
@@ -110,7 +161,7 @@ export function RosterEditor({
     <Card>
       <CardHeader
         title="People (roster)"
-        description="Each person is either a fixed monthly salary or a session/hour rate. HR sets the figure; they confirm it and add adjustments."
+        description="Each person is a fixed monthly salary or one or more session/hour rates. HR sets the figures; they confirm and add adjustments."
         action={
           <Button type="button" size="sm" variant="brand-soft" onClick={addPerson}>
             + Add person
@@ -158,10 +209,21 @@ export function RosterEditor({
             </div>
 
             <div className="mt-3">
+              <Field label="Subjects they teach" hint="Select all that apply.">
+                <MultiSelect
+                  options={[...SUBJECT_OPTIONS]}
+                  value={p.subjects}
+                  onChange={(v) => patch(p.key, { subjects: v })}
+                  placeholder="Select subjects"
+                />
+              </Field>
+            </div>
+
+            <div className="mt-3">
               <Field label="Pay type">
                 <Select
                   value={p.pay_type}
-                  onChange={(e) => patch(p.key, { pay_type: e.target.value as PayType })}
+                  onChange={(e) => changePayType(p.key, e.target.value as PayType)}
                 >
                   {PAY_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -185,50 +247,89 @@ export function RosterEditor({
                 </Field>
               </div>
             ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                <div className="sm:col-span-2">
-                  <Label>Descriptor</Label>
-                  <Input
-                    value={p.rate_descriptor ?? ""}
-                    onChange={(e) => patch(p.key, { rate_descriptor: e.target.value })}
-                    placeholder="Weekday teaching"
-                  />
-                </div>
-                <div>
-                  <Label>Unit</Label>
-                  <Select
-                    value={p.rate_unit}
-                    onChange={(e) => patch(p.key, { rate_unit: e.target.value as RateUnit })}
+              <div className="mt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label>Rates</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="neutral"
+                    onClick={() => addRate(p.key)}
                   >
-                    <option value="per_session">per session</option>
-                    <option value="per_hour">per hour</option>
-                  </Select>
+                    + Add rate
+                  </Button>
                 </div>
-                <div>
-                  <Label>Amount ({sym})</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={p.rate_amount}
-                    onChange={(e) => patch(p.key, { rate_amount: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <Label>Task</Label>
-                  <Select
-                    value={p.rate_task ?? ""}
-                    onChange={(e) =>
-                      patch(p.key, { rate_task: (e.target.value || null) as TaskType | null })
-                    }
-                  >
-                    <option value="">Teaching (default)</option>
-                    {SUPPLIER_TASKS.map((t) => (
-                      <option key={t} value={t}>
-                        {TASK_LABELS[t]}
-                      </option>
-                    ))}
-                  </Select>
+                <div className="space-y-2">
+                  {p.rates.map((rt, ri) => (
+                    <div
+                      key={ri}
+                      className="grid items-end gap-3 rounded-lg border border-ink-200 bg-white p-3 sm:grid-cols-12"
+                    >
+                      <div className="sm:col-span-4">
+                        <Label>Descriptor</Label>
+                        <Input
+                          value={rt.descriptor ?? ""}
+                          onChange={(e) => patchRate(p.key, ri, { descriptor: e.target.value })}
+                          placeholder="Weekday teaching"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <Label>Task</Label>
+                        <Select
+                          value={rt.task ?? ""}
+                          onChange={(e) =>
+                            patchRate(p.key, ri, {
+                              task: (e.target.value || null) as TaskType | null,
+                            })
+                          }
+                        >
+                          <option value="">Teaching (default)</option>
+                          {RATE_TASKS.map((t) => (
+                            <option key={t} value={t}>
+                              {TASK_LABELS[t]}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Unit</Label>
+                        <Select
+                          value={rt.unit}
+                          onChange={(e) =>
+                            patchRate(p.key, ri, { unit: e.target.value as RateUnit })
+                          }
+                        >
+                          <option value="per_session">per session</option>
+                          <option value="per_hour">per hour</option>
+                        </Select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Label>Amount ({sym})</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={rt.amount}
+                          onChange={(e) => patchRate(p.key, ri, { amount: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <button
+                          type="button"
+                          onClick={() => removeRate(p.key, ri)}
+                          className="h-10 w-full rounded-lg text-xs font-medium text-red-600 hover:bg-red-50"
+                          aria-label="Remove rate"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {p.rates.length === 0 && (
+                    <p className="text-sm text-ink-500">
+                      No rates yet. Click <strong>Add rate</strong> to add one.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

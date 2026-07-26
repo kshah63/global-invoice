@@ -25,6 +25,7 @@ import type {
   InvoiceLineItem,
   SupplierMember,
   SupplierMemberInvoice,
+  SupplierMemberRate,
   TeamMember,
   TeamMemberRate,
 } from "@/lib/types";
@@ -83,30 +84,59 @@ export default async function TeamInvoiceDetail({
         .eq("period_year", invoice.period_year)
         .eq("period_month", invoice.period_month),
     ]);
-    // Each roster person contributes one synthetic "rate": their fixed salary
-    // or their session/hour rate. (The leader mostly pulls member submissions;
-    // this is for manually adding a person who hasn't submitted.)
-    roster = ((rosterRows as SupplierMember[]) ?? []).map((m) => ({
-      id: m.id,
-      name: m.name,
-      rates: [
-        m.pay_type === "fixed"
-          ? {
+    // Each roster person contributes their configured rates (fixed salary, or
+    // one or more session/hour rates). The leader mostly pulls member
+    // submissions; this is for manually adding a person who hasn't submitted.
+    const rosterMembers = (rosterRows as SupplierMember[]) ?? [];
+    const rosterIds = rosterMembers.map((m) => m.id);
+    const { data: rosterRateRows } = rosterIds.length
+      ? await supabase
+          .from("supplier_member_rates")
+          .select("*")
+          .in("supplier_member_id", rosterIds)
+          .order("sort_order")
+      : { data: [] as SupplierMemberRate[] };
+    const ratesByMember = new Map<string, SupplierMemberRate[]>();
+    ((rosterRateRows as SupplierMemberRate[]) ?? []).forEach((r) => {
+      const arr = ratesByMember.get(r.supplier_member_id) ?? [];
+      arr.push(r);
+      ratesByMember.set(r.supplier_member_id, arr);
+    });
+    roster = rosterMembers.map((m) => {
+      if (m.pay_type === "fixed") {
+        return {
+          id: m.id,
+          name: m.name,
+          rates: [
+            {
               id: m.id,
               descriptor: "Monthly salary",
               unit: "fixed" as RateUnit,
               amount: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
               task: "fixed_salary" as TaskType,
-            }
-          : {
-              id: m.id,
-              descriptor: m.rate_descriptor || "Work",
-              unit: m.rate_unit as RateUnit,
-              amount: Number(m.rate_amount),
-              task: (m.rate_task ?? null) as TaskType | null,
             },
-      ],
-    }));
+          ],
+        };
+      }
+      const rateList = (ratesByMember.get(m.id) ?? []).map((r) => ({
+        id: r.id,
+        descriptor: r.descriptor || "Work",
+        unit: r.unit as RateUnit,
+        amount: Number(r.amount),
+        task: (r.task ?? null) as TaskType | null,
+      }));
+      // Fallback to the mirrored single rate if no rate rows exist yet.
+      if (rateList.length === 0 && Number(m.rate_amount) > 0) {
+        rateList.push({
+          id: m.id,
+          descriptor: m.rate_descriptor || "Work",
+          unit: m.rate_unit as RateUnit,
+          amount: Number(m.rate_amount),
+          task: (m.rate_task ?? null) as TaskType | null,
+        });
+      }
+      return { id: m.id, name: m.name, rates: rateList };
+    });
     const subList =
       (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
     submissions = subList

@@ -149,6 +149,7 @@ export interface SupplierMember {
   rate_descriptor: string | null;
   rate_task: TaskType | null;
   payment_currency: Currency | null; // null = same as the supplier's currency
+  subjects: string[];
   created_at: string;
 }
 

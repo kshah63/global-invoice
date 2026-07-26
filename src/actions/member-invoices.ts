@@ -84,11 +84,16 @@ export interface MemberAdjustmentInput {
   sort_order: number;
 }
 
+export interface MemberRateLineInput {
+  rate_id: string;
+  quantity: number; // sessions/hours worked at this rate
+}
+
 export interface SaveMemberInvoiceInput {
   invoiceId: string;
   displayName: string;
   notes: string | null;
-  quantity: number; // sessions/hours (ignored for fixed-salary members)
+  lines: MemberRateLineInput[]; // per-rate quantities (ignored for fixed salary)
   adjustments: MemberAdjustmentInput[];
 }
 
@@ -100,7 +105,7 @@ export async function saveMemberInvoice(
     p_invoice: input.invoiceId,
     p_display_name: input.displayName,
     p_notes: input.notes,
-    p_quantity: input.quantity,
+    p_lines: input.lines,
     p_adjustments: input.adjustments,
   });
   if (error) return { error: error.message };

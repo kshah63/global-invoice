@@ -8,14 +8,16 @@ import { Alert } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
   MemberInvoiceEditor,
-  type MemberPay,
+  type MemberRate,
 } from "@/components/invoice/MemberInvoiceEditor";
 import { MemberPaySummary } from "@/components/MemberPaySummary";
 import { deleteMemberInvoice } from "@/actions/member-invoices";
+import type { RateUnit, TaskType } from "@/lib/constants";
 import type {
   SupplierMember,
   SupplierMemberInvoice,
   SupplierMemberInvoiceItem,
+  SupplierMemberRate,
 } from "@/lib/types";
 
 export default async function MemberInvoiceDetail({
@@ -36,7 +38,7 @@ export default async function MemberInvoiceDetail({
   if (!invRow) notFound();
   const invoice = invRow as SupplierMemberInvoice;
 
-  const [{ data: itemRows }, { data: memberRow }, { data: supplierRow }] =
+  const [{ data: itemRows }, { data: memberRow }, { data: supplierRow }, { data: rateRows }] =
     await Promise.all([
       supabase
         .from("supplier_member_invoice_items")
@@ -53,19 +55,24 @@ export default async function MemberInvoiceDetail({
         .select("name")
         .eq("id", invoice.supplier_id)
         .maybeSingle(),
+      supabase
+        .from("supplier_member_rates")
+        .select("*")
+        .eq("supplier_member_id", invoice.supplier_member_id)
+        .order("sort_order"),
     ]);
 
   const items = (itemRows as SupplierMemberInvoiceItem[]) ?? [];
   const member = memberRow as SupplierMember | null;
   const supplierName = (supplierRow as { name: string } | null)?.name ?? "your agency";
 
-  const pay: MemberPay = {
-    pay_type: member?.pay_type ?? "fixed",
-    monthly_salary: member?.monthly_salary != null ? Number(member.monthly_salary) : 0,
-    rate_unit: member?.rate_unit ?? "per_hour",
-    rate_amount: member?.rate_amount != null ? Number(member.rate_amount) : 0,
-    rate_descriptor: member?.rate_descriptor ?? null,
-  };
+  const rates: MemberRate[] = ((rateRows as SupplierMemberRate[]) ?? []).map((r) => ({
+    id: r.id,
+    descriptor: r.descriptor,
+    unit: r.unit as RateUnit,
+    amount: Number(r.amount),
+    task: (r.task ?? null) as TaskType | null,
+  }));
 
   const editable = invoice.status === "draft" || invoice.status === "returned";
 
@@ -90,7 +97,9 @@ export default async function MemberInvoiceDetail({
           <MemberInvoiceEditor
             invoice={invoice}
             initialItems={items}
-            pay={pay}
+            payType={member?.pay_type ?? "fixed"}
+            monthlySalary={member?.monthly_salary != null ? Number(member.monthly_salary) : 0}
+            rates={rates}
             supplierName={supplierName}
           />
           {invoice.status === "draft" && (

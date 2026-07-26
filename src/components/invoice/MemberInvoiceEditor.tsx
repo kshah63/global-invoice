@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RATE_UNIT_LABELS, type PayType, type RateUnit } from "@/lib/constants";
+import { RATE_UNIT_LABELS, type PayType, type RateUnit, type TaskType } from "@/lib/constants";
 import { formatCurrency } from "@/lib/format";
 import { TransferNote } from "@/components/TransferNote";
 import type { SupplierMemberInvoice, SupplierMemberInvoiceItem } from "@/lib/types";
@@ -17,12 +17,12 @@ import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Feedback";
 import { MemberStatusBadge } from "@/components/MemberStatusBadge";
 
-export interface MemberPay {
-  pay_type: PayType;
-  monthly_salary: number;
-  rate_unit: RateUnit;
-  rate_amount: number;
-  rate_descriptor: string | null;
+export interface MemberRate {
+  id: string;
+  descriptor: string | null;
+  unit: RateUnit;
+  amount: number;
+  task: TaskType | null;
 }
 
 type Direction = "add" | "subtract";
@@ -39,22 +39,34 @@ const newKey = () => `a-${seq++}-${Math.round(Math.random() * 1e6)}`;
 export function MemberInvoiceEditor({
   invoice,
   initialItems,
-  pay,
+  payType,
+  monthlySalary,
+  rates,
   supplierName,
 }: {
   invoice: SupplierMemberInvoice;
   initialItems: SupplierMemberInvoiceItem[];
-  pay: MemberPay;
+  payType: PayType;
+  monthlySalary: number;
+  rates: MemberRate[];
   supplierName: string;
 }) {
   const router = useRouter();
   const currency = invoice.currency; // rate currency
-  const isRate = pay.pay_type === "rate";
-  const qtyLabel = pay.rate_unit === "per_session" ? "Sessions" : "Hours";
+  const isRate = payType === "rate";
 
   const [displayName, setDisplayName] = useState(invoice.display_name);
   const [notes, setNotes] = useState(invoice.notes ?? "");
-  const [quantity, setQuantity] = useState(String(invoice.quantity ?? 0));
+  // Worked quantity per rate, reconstructed from any saved base lines.
+  const [qtys, setQtys] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    rates.forEach((r) => {
+      const it = initialItems.find((x) => x.task !== "adjustment" && x.rate_id === r.id);
+      const q = it ? Number(it.sessions ?? 0) + Number(it.hours ?? 0) : 0;
+      out[r.id] = q ? String(q) : "";
+    });
+    return out;
+  });
   const [adjustments, setAdjustments] = useState<AdjRow[]>(
     initialItems
       .filter((it) => it.task === "adjustment")
@@ -73,8 +85,8 @@ export function MemberInvoiceEditor({
   const [notice, setNotice] = useState<string | null>(null);
 
   const baseTotal = isRate
-    ? (Number(pay.rate_amount) || 0) * (Number(quantity) || 0)
-    : Number(pay.monthly_salary) || 0;
+    ? rates.reduce((sum, r) => sum + (Number(r.amount) || 0) * (Number(qtys[r.id]) || 0), 0)
+    : monthlySalary;
 
   const adjTotal = useMemo(
     () =>
@@ -86,6 +98,9 @@ export function MemberInvoiceEditor({
   );
   const grandTotal = Math.round((baseTotal + adjTotal) * 100) / 100;
 
+  function setQty(rateId: string, value: string) {
+    setQtys((prev) => ({ ...prev, [rateId]: value }));
+  }
   function patchAdj(key: string, p: Partial<AdjRow>) {
     setAdjustments((prev) => prev.map((r) => (r.key === key ? { ...r, ...p } : r)));
   }
@@ -107,7 +122,7 @@ export function MemberInvoiceEditor({
       setError("Every adjustment needs a description and an amount greater than zero.");
       return false;
     }
-    const payload: MemberAdjustmentInput[] = adjustments.map((a, i) => {
+    const adjPayload: MemberAdjustmentInput[] = adjustments.map((a, i) => {
       const mag = Math.abs(Number(a.amount) || 0);
       return {
         note: a.description.trim(),
@@ -120,8 +135,10 @@ export function MemberInvoiceEditor({
       invoiceId: invoice.id,
       displayName: displayName.trim() || invoice.display_name,
       notes: notes.trim() || null,
-      quantity: isRate ? Number(quantity) || 0 : 0,
-      adjustments: payload,
+      lines: isRate
+        ? rates.map((r) => ({ rate_id: r.id, quantity: Number(qtys[r.id]) || 0 }))
+        : [],
+      adjustments: adjPayload,
     });
     if (res.error) {
       setError(res.error);
@@ -166,36 +183,59 @@ export function MemberInvoiceEditor({
           title={`Your pay · ${supplierName}`}
           description={
             isRate
-              ? "Enter what you worked this month and add any adjustments, then confirm."
+              ? "Enter what you worked at each rate this month and add any adjustments, then confirm."
               : "Check your salary, add any adjustments, then confirm."
           }
           action={<MemberStatusBadge status={invoice.status} />}
         />
         <CardBody className="space-y-4">
           {isRate ? (
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Your rate" hint={pay.rate_descriptor ?? undefined}>
-                <Input
-                  disabled
-                  value={`${formatCurrency(pay.rate_amount, currency)} ${RATE_UNIT_LABELS[pay.rate_unit]}`}
-                />
-              </Field>
-              <Field label={qtyLabel} required>
-                <Input
-                  type="number"
-                  min="0"
-                  step={pay.rate_unit === "per_hour" ? "0.25" : "0.5"}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </Field>
-              <div>
-                <Label>Pay before adjustments</Label>
-                <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
-                  {formatCurrency(baseTotal, currency)}
+            rates.length === 0 ? (
+              <Alert tone="warning">
+                No rates have been set for you yet. Ask your leader or HR to add them.
+              </Alert>
+            ) : (
+              <div className="space-y-3">
+                {rates.map((r) => {
+                  const qtyLabel = r.unit === "per_session" ? "Sessions" : "Hours";
+                  const lineTotal = (Number(r.amount) || 0) * (Number(qtys[r.id]) || 0);
+                  return (
+                    <div
+                      key={r.id}
+                      className="grid items-end gap-3 rounded-xl border border-ink-200 bg-ink-50/40 p-3 sm:grid-cols-12"
+                    >
+                      <div className="sm:col-span-5">
+                        <Label>{r.descriptor || "Rate"}</Label>
+                        <div className="flex h-10 items-center text-sm text-ink-600">
+                          {formatCurrency(r.amount, currency)}{" "}
+                          <span className="ml-1 text-ink-400">{RATE_UNIT_LABELS[r.unit]}</span>
+                        </div>
+                      </div>
+                      <div className="sm:col-span-3">
+                        <Label>{qtyLabel}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step={r.unit === "per_hour" ? "0.25" : "0.5"}
+                          value={qtys[r.id] ?? ""}
+                          onChange={(e) => setQty(r.id, e.target.value)}
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <Label>Line total</Label>
+                        <div className="flex h-10 items-center rounded-xl border border-ink-200 bg-white px-3 text-sm font-medium tnum">
+                          {formatCurrency(lineTotal, currency)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between px-1 text-sm">
+                  <span className="text-ink-500">Pay before adjustments</span>
+                  <span className="tnum font-medium">{formatCurrency(baseTotal, currency)}</span>
                 </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="flex items-center justify-between rounded-xl border border-ink-200 bg-white px-4 py-3">
               <span className="text-sm text-ink-500">Monthly salary</span>
