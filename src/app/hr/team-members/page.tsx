@@ -11,7 +11,7 @@ import { Flash } from "@/components/Flash";
 import { setTeamMemberActive } from "@/actions/team-members";
 import { deleteDepartmentHead } from "@/actions/settings";
 import { formatCurrency } from "@/lib/format";
-import type { Profile, TeamMember } from "@/lib/types";
+import type { Profile, TeamMember, TeamMemberRate } from "@/lib/types";
 
 export const metadata = { title: "People" };
 
@@ -20,6 +20,35 @@ function ActiveBadge({ active }: { active: boolean }) {
     <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">Active</Badge>
   ) : (
     <Badge className="bg-ink-100 text-ink-600 ring-ink-200">Inactive</Badge>
+  );
+}
+
+const RATE_UNIT_SHORT: Record<string, string> = {
+  per_hour: "/hr",
+  per_session: "/session",
+  fixed: "",
+};
+
+// A person's pay at a glance: their fixed salary, or a summary of their rates
+// (up to two, then "+N more").
+function PayCell({ member, rates }: { member: TeamMember; rates: TeamMemberRate[] }) {
+  if (member.fixed_salary != null) {
+    return <span>{formatCurrency(member.fixed_salary, member.currency)}</span>;
+  }
+  if (rates.length === 0) return <span className="text-ink-400">—</span>;
+  const shown = rates.slice(0, 2);
+  const extra = rates.length - shown.length;
+  return (
+    <span className="text-ink-700">
+      {shown.map((r, i) => (
+        <span key={r.id}>
+          {i > 0 ? ", " : ""}
+          {formatCurrency(Number(r.amount), member.currency)}
+          <span className="text-ink-400">{RATE_UNIT_SHORT[r.unit] ?? ""}</span>
+        </span>
+      ))}
+      {extra > 0 && <span className="text-ink-400"> +{extra} more</span>}
+    </span>
   );
 }
 
@@ -67,6 +96,23 @@ export default async function PeoplePage({
   const suppliers = members.filter((m) => m.member_type === "supplier");
   const deptHeads = (heads as Profile[]) ?? [];
 
+  // Rates for individuals, so the Pay column can show hourly/session rates for
+  // people who aren't on a fixed salary.
+  const individualIds = individuals.map((m) => m.id);
+  const { data: rateData } = individualIds.length
+    ? await supabase
+        .from("team_member_rates")
+        .select("*")
+        .in("team_member_id", individualIds)
+        .order("sort_order")
+    : { data: [] as TeamMemberRate[] };
+  const ratesByMember = new Map<string, TeamMemberRate[]>();
+  ((rateData as TeamMemberRate[]) ?? []).forEach((r) => {
+    const arr = ratesByMember.get(r.team_member_id) ?? [];
+    arr.push(r);
+    ratesByMember.set(r.team_member_id, arr);
+  });
+
   return (
     <>
       <Flash ok={searchParams.ok} error={searchParams.error} />
@@ -106,7 +152,7 @@ export default async function PeoplePage({
                     <th className="px-5 py-3 font-semibold">Name</th>
                     <th className="px-5 py-3 font-semibold">ID</th>
                     <th className="px-5 py-3 font-semibold">Currency</th>
-                    <th className="px-5 py-3 font-semibold">Fixed salary</th>
+                    <th className="px-5 py-3 font-semibold">Pay</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
                     <th className="px-5 py-3 text-right font-semibold">Actions</th>
                   </tr>
@@ -128,9 +174,7 @@ export default async function PeoplePage({
                       </td>
                       <td className="px-5 py-3">{m.currency}</td>
                       <td className="px-5 py-3 tnum">
-                        {m.fixed_salary != null
-                          ? formatCurrency(m.fixed_salary, m.currency)
-                          : "—"}
+                        <PayCell member={m} rates={ratesByMember.get(m.id) ?? []} />
                       </td>
                       <td className="px-5 py-3">
                         <ActiveBadge active={m.active} />
