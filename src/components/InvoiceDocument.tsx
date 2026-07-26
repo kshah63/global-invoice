@@ -61,13 +61,7 @@ export function InvoiceDocument({
           </div>
         </div>
         <div className="text-right text-sm text-ink-600">
-          <div className="font-serif text-lg font-semibold text-ink-900">
-            {company?.company_name ?? "MathVision"}
-          </div>
-          <div className="mt-1 text-[0.7rem] font-semibold uppercase tracking-wider text-ink-400">
-            Global Online
-          </div>
-          <div className="mt-4">
+          <div>
             <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-ink-400">
               Billing period
             </div>
