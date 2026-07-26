@@ -1,6 +1,10 @@
 import { cn } from "@/lib/cn";
 
-/** MathVision monogram — a rounded tile with an ascending "insight" curve. */
+/**
+ * MathVision monogram — the real MV mark: an indigo "M" over a white "V"
+ * chevron, on the brand orange (rounded for the app tile). Vector paths taken
+ * straight from the supplied logo, so it stays crisp at any size.
+ */
 export function BrandMark({
   className,
   size = 36,
@@ -12,27 +16,22 @@ export function BrandMark({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 40 40"
+      viewBox="0 0 850.394 850.39"
       fill="none"
       className={cn("shrink-0", className)}
       aria-hidden="true"
     >
-      <rect width="40" height="40" rx="11" fill="#163d6e" />
-      <rect width="40" height="40" rx="11" fill="url(#mv-grad)" fillOpacity="0.5" />
+      <rect width="850.394" height="850.39" rx="150" fill="#f05a2b" />
       <path
-        d="M9 27.5 L16.5 15.5 L21 22 L28 11.5"
-        stroke="#ffffff"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        transform="matrix(1,0,0,-1,137.1235,44.551637)"
+        d="M0 0V-369.717H82.061V-216.476L288.097-460.159 492.367-216.476V-375.746H575.458V0L288.097-305.596Z"
+        fill="#2e3192"
       />
-      <circle cx="28" cy="11.5" r="3" fill="#d6a32e" />
-      <defs>
-        <linearGradient id="mv-grad" x1="0" y1="0" x2="40" y2="40">
-          <stop stopColor="#3066a6" />
-          <stop offset="1" stopColor="#0d223d" />
-        </linearGradient>
-      </defs>
+      <path
+        transform="matrix(1,0,0,-1,425.2202,806.6312)"
+        d="M0 0-288.097 355.451V497.514L0 167.651 287.361 497.514V355.451Z"
+        fill="#ffffff"
+      />
     </svg>
   );
 }
@@ -52,7 +51,7 @@ export function BrandWordmark({
       <div className="leading-tight">
         <div
           className={cn(
-            "font-serif text-lg font-semibold tracking-tight",
+            "font-sans text-lg font-bold tracking-tight",
             invert ? "text-white" : "text-ink-900"
           )}
         >
@@ -61,8 +60,8 @@ export function BrandWordmark({
         {subtitle && (
           <div
             className={cn(
-              "text-[0.7rem] font-medium uppercase tracking-wider",
-              invert ? "text-brand-200" : "text-ink-400"
+              "text-[0.7rem] font-semibold uppercase tracking-[0.18em]",
+              invert ? "text-gold-300" : "text-ink-400"
             )}
           >
             Global Online

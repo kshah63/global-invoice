@@ -17,8 +17,8 @@
     /* Signature: the whole app sits on faint graph paper (the MathVision
        coordinate-plane motif). Barely visible — reads as texture, not lines. */
     background-image:
-      linear-gradient(to right, rgba(29, 78, 137, 0.035) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(29, 78, 137, 0.035) 1px, transparent 1px);
+      linear-gradient(to right, rgba(46, 49, 146, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(46, 49, 146, 0.04) 1px, transparent 1px);
     background-size: 27px 27px;
     background-attachment: fixed;
   }
@@ -63,15 +63,14 @@
     @apply text-xs text-ink-500;
   }
 
-  /* Signature tricolour hairline — the three brand colours, used to underline
-     the app header and the auth hero. */
+  /* Signature hairline — the two brand colours (indigo → orange), used to
+     underline the app header and the auth hero. */
   .mv-rule {
     height: 2px;
     background-image: linear-gradient(
       90deg,
       theme("colors.brand.600") 0%,
-      theme("colors.gold.500") 52%,
-      theme("colors.teal.500") 100%
+      theme("colors.gold.500") 100%
     );
   }
 
@@ -81,17 +80,17 @@
   }
 }
 
-/* Deep-blue brand backdrop for auth — a lit coordinate plane: blueprint grid
-   over a soft colour mesh with a horizon glow up top. */
+/* Deep-indigo brand backdrop for auth — a lit coordinate plane: blueprint grid
+   over an indigo colour mesh with an orange glow and a horizon highlight. */
 .brand-mesh {
-  background-color: #0d223d;
+  background-color: #1a1c46;
   background-image:
     linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
     radial-gradient(at 50% -8%, rgba(255, 255, 255, 0.10) 0px, transparent 42%),
-    radial-gradient(at 12% 18%, rgba(48, 102, 166, 0.55) 0px, transparent 55%),
-    radial-gradient(at 85% 10%, rgba(192, 138, 34, 0.28) 0px, transparent 50%),
-    radial-gradient(at 78% 88%, rgba(23, 127, 133, 0.40) 0px, transparent 55%);
+    radial-gradient(at 12% 18%, rgba(74, 79, 176, 0.55) 0px, transparent 55%),
+    radial-gradient(at 85% 12%, rgba(240, 90, 43, 0.30) 0px, transparent 50%),
+    radial-gradient(at 78% 88%, rgba(46, 49, 146, 0.60) 0px, transparent 55%);
   background-size: 30px 30px, 30px 30px, auto, auto, auto, auto;
 }
 

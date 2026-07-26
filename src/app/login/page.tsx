@@ -36,7 +36,7 @@ export default async function LoginPage({
             strokeLinecap="round"
           />
           <circle cx="104" cy="92" r="4.5" fill="white" />
-          <circle cx="184" cy="26" r="7" fill="#e2b94f" />
+          <circle cx="184" cy="26" r="7" fill="#f05a2b" />
         </svg>
 
         <div className="relative animate-fade-in">

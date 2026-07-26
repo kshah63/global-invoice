@@ -2,9 +2,9 @@ import type { Config } from "tailwindcss";
 
 /**
  * MathVision design tokens.
- * This is the single source of truth for the brand palette — rebrand the whole
- * app by editing the values below. Deep academic blue (brand) + warm gold accent
- * + teal secondary, on cool neutral surfaces.
+ * Single source of truth for the brand palette — from the MathVision logo:
+ * indigo (brand primary, #2e3192) + orange (accent, #f05a2b) + white, with
+ * teal kept for "approved/success" status, on cool neutral surfaces.
  */
 const config: Config = {
   content: [
@@ -15,32 +15,33 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary brand — MathVision deep blue
+        // Primary brand — MathVision indigo (#2e3192)
         brand: {
-          50: "#eef4fb",
-          100: "#d7e5f4",
-          200: "#b0cae9",
-          300: "#82a9d8",
-          400: "#5184c1",
-          500: "#3066a6",
-          600: "#1d4e89", // primary
-          700: "#163d6e",
-          800: "#122f53",
-          900: "#0d223d",
-          950: "#071627",
+          50: "#eef0fb",
+          100: "#dfe1f6",
+          200: "#c2c5ec",
+          300: "#989cdd",
+          400: "#6d72c9",
+          500: "#4a4fb0",
+          600: "#2e3192", // primary — the logo indigo
+          700: "#282a7a",
+          800: "#222463",
+          900: "#1d1f50",
+          950: "#101132",
         },
-        // Warm gold — accents, highlights, secondary CTAs
+        // Accent — MathVision orange (#f05a2b). (Kept the key name "gold" so the
+        // whole app's accent recolours from here; values are now the brand orange.)
         gold: {
-          50: "#fbf6ea",
-          100: "#f5e8c6",
-          200: "#ecd28c",
-          300: "#e2b94f",
-          400: "#d6a32e",
-          500: "#c08a22", // accent
-          600: "#9c6c1c",
-          700: "#7a521b",
-          800: "#66451c",
-          900: "#573a1b",
+          50: "#fef1ea",
+          100: "#fcdcc9",
+          200: "#f9b995",
+          300: "#f6905f",
+          400: "#f2703c",
+          500: "#f05a2b", // accent — the logo orange
+          600: "#d5451b",
+          700: "#b23815",
+          800: "#8f2f16",
+          900: "#742915",
         },
         // Teal — secondary / "approved"
         teal: {
@@ -79,9 +80,9 @@ const config: Config = {
         "2xl": "1.125rem",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(13, 34, 61, 0.05), 0 1px 3px rgba(13, 34, 61, 0.06)",
-        "card-hover": "0 4px 12px rgba(13, 34, 61, 0.10), 0 2px 4px rgba(13, 34, 61, 0.06)",
-        pop: "0 12px 40px rgba(13, 34, 61, 0.18)",
+        card: "0 1px 2px rgba(29, 31, 80, 0.05), 0 1px 3px rgba(29, 31, 80, 0.06)",
+        "card-hover": "0 4px 12px rgba(29, 31, 80, 0.10), 0 2px 4px rgba(29, 31, 80, 0.06)",
+        pop: "0 12px 40px rgba(29, 31, 80, 0.18)",
       },
       keyframes: {
         "fade-in": {
