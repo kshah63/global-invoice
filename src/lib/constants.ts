@@ -67,13 +67,11 @@ export const TASKS = [
   "fixed_salary",
 ] as const;
 
-// Supplier tasks (no fixed salary; adds consultancy/ambassador/admin/misc)
+// Supplier tasks (no fixed salary; adds phone ambassador + expense claim)
 export const SUPPLIER_TASKS = [
   "teaching",
   "teacher_training",
-  "consultancy",
   "phone_ambassador",
-  "administrative_services",
   "misc_expenses",
 ] as const;
 
@@ -84,7 +82,11 @@ export const ADJUSTMENT_TASK = "adjustment" as const;
 
 // Retired tasks: no longer offered in any picker, but still valid TaskTypes so
 // historical invoices/rates that used them keep rendering their proper label.
-export const LEGACY_TASKS = ["paper_marking"] as const;
+export const LEGACY_TASKS = [
+  "paper_marking",
+  "consultancy",
+  "administrative_services",
+] as const;
 
 export type TaskType =
   | (typeof TASKS)[number]
