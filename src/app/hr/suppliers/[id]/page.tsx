@@ -81,6 +81,7 @@ export default async function EditSupplier({
       id: m.id,
       name: m.name,
       code: m.code,
+      role: m.role ?? "",
       pay_type: m.pay_type,
       monthly_salary: m.monthly_salary != null ? Number(m.monthly_salary) : 0,
       subjects: m.subjects ?? [],

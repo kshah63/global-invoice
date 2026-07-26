@@ -136,6 +136,7 @@ export interface SupplierMember {
   supplier_id: string;
   name: string;
   code: string; // 4-digit
+  role: string | null; // job role: teacher / phone_ambassador / manager
   active: boolean;
   sort_order: number;
   profile_id: string | null; // login account, if HR created one

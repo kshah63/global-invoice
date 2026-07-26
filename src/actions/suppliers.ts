@@ -35,6 +35,7 @@ export interface RosterPersonInput {
   id: string | null;
   name: string;
   code: string;
+  role: string | null;
   pay_type: PayType;
   monthly_salary: number | null;
   subjects: string[];
@@ -202,6 +203,7 @@ export async function saveRoster(
     const payFields = {
       name: p.name.trim(),
       code: p.code.trim(),
+      role: p.role || null,
       sort_order: i,
       subjects: p.subjects ?? [],
       pay_type: p.pay_type,

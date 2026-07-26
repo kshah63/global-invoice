@@ -457,6 +457,7 @@ async function main() {
   const jane = await ensureSupplierMember(bright, {
     name: "Jane Tan",
     code: "3001",
+    role: "manager",
     profile_id: janeUser.id,
     email: "jane.tan@brightminds.demo",
     pay_type: "fixed",
@@ -471,6 +472,7 @@ async function main() {
     {
       name: "Omar Ali",
       code: "3002",
+      role: "teacher",
       pay_type: "rate",
       rate_unit: "per_hour",
       rate_amount: 80,

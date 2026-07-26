@@ -119,6 +119,17 @@ export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
   supplier: "Supplier",
 };
 
+// --- Roster member job role -----------------------------------------------
+
+export const ROSTER_ROLES = ["teacher", "phone_ambassador", "manager"] as const;
+export type RosterRole = (typeof ROSTER_ROLES)[number];
+
+export const ROSTER_ROLE_LABELS: Record<RosterRole, string> = {
+  teacher: "Teacher",
+  phone_ambassador: "Phone Ambassador",
+  manager: "Manager",
+};
+
 // --- Roster member pay type (fixed salary vs a session/hour rate) ----------
 
 export const PAY_TYPES = ["fixed", "rate"] as const;

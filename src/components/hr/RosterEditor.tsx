@@ -6,6 +6,8 @@ import {
   CURRENCY_META,
   PAY_TYPES,
   PAY_TYPE_LABELS,
+  ROSTER_ROLES,
+  ROSTER_ROLE_LABELS,
   SUBJECT_OPTIONS,
   SUPPLIER_TASKS,
   TASK_LABELS,
@@ -36,6 +38,7 @@ export interface RosterPersonState {
   id: string | null;
   name: string;
   code: string;
+  role: string;
   pay_type: PayType;
   monthly_salary: number | null;
   subjects: string[];
@@ -83,6 +86,7 @@ export function RosterEditor({
         id: null,
         name: "",
         code: "",
+        role: "",
         pay_type: "fixed",
         monthly_salary: 0,
         subjects: [],
@@ -133,6 +137,7 @@ export function RosterEditor({
       id: p.id,
       name: p.name.trim(),
       code: p.code.trim(),
+      role: p.role || null,
       pay_type: p.pay_type,
       monthly_salary: p.pay_type === "fixed" ? Number(p.monthly_salary) || 0 : null,
       subjects: p.subjects,
@@ -208,7 +213,20 @@ export function RosterEditor({
               </Field>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Role">
+                <Select
+                  value={p.role}
+                  onChange={(e) => patch(p.key, { role: e.target.value })}
+                >
+                  <option value="">— Select role —</option>
+                  {ROSTER_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {ROSTER_ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label="Subjects they teach" hint="Select all that apply.">
                 <MultiSelect
                   options={[...SUBJECT_OPTIONS]}
