@@ -64,7 +64,6 @@ export type Centre = (typeof CENTRES)[number];
 export const TASKS = [
   "teaching",
   "teacher_training",
-  "paper_marking",
   "fixed_salary",
 ] as const;
 
@@ -72,7 +71,6 @@ export const TASKS = [
 export const SUPPLIER_TASKS = [
   "teaching",
   "teacher_training",
-  "paper_marking",
   "consultancy",
   "phone_ambassador",
   "administrative_services",
@@ -84,10 +82,15 @@ export const SUPPLIER_TASKS = [
 // dropdown — so it's kept out of TASKS/SUPPLIER_TASKS but is a valid TaskType.
 export const ADJUSTMENT_TASK = "adjustment" as const;
 
+// Retired tasks: no longer offered in any picker, but still valid TaskTypes so
+// historical invoices/rates that used them keep rendering their proper label.
+export const LEGACY_TASKS = ["paper_marking"] as const;
+
 export type TaskType =
   | (typeof TASKS)[number]
   | (typeof SUPPLIER_TASKS)[number]
-  | typeof ADJUSTMENT_TASK;
+  | typeof ADJUSTMENT_TASK
+  | (typeof LEGACY_TASKS)[number];
 
 export const TASK_LABELS: Record<TaskType, string> = {
   teaching: "Teaching",
