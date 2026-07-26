@@ -48,6 +48,23 @@ function apiKeyError(msg: string) {
     : msg;
 }
 
+// Find an existing auth user by email (used to recover an orphaned account).
+async function findAuthUserByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string
+) {
+  const target = email.trim().toLowerCase();
+  for (let page = 1; page <= 25; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    const users = data?.users ?? [];
+    const hit = users.find((u) => (u.email ?? "").toLowerCase() === target);
+    if (hit) return hit;
+    if (users.length < 200) break;
+  }
+  return null;
+}
+
 // --- Create ---------------------------------------------------------------
 
 export async function createSupplier(
@@ -159,7 +176,7 @@ export async function updateSupplier(
 export async function saveRoster(
   supplierId: string,
   people: RosterPersonInput[]
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; saved?: { id: string; code: string }[] }> {
   await ensureHr();
   const supabase = createClient();
 
@@ -169,20 +186,8 @@ export async function saveRoster(
     return { error: `Each person needs a 4-digit ID (check "${badCode.name || "a person"}").` };
   }
 
-  // Remove people no longer present.
-  const { data: existing } = await supabase
-    .from("supplier_members")
-    .select("id")
-    .eq("supplier_id", supplierId);
-  const keepIds = new Set(cleaned.map((p) => p.id).filter(Boolean));
-  const toDelete = ((existing as { id: string }[]) ?? [])
-    .filter((e) => !keepIds.has(e.id))
-    .map((e) => e.id);
-  if (toDelete.length) {
-    await supabase.from("supplier_members").delete().in("id", toDelete);
-  }
-
-  // Validate pay config: fixed needs a salary; rate needs at least one rate.
+  // Validate pay up front, before any writes (fixed needs a salary; rate needs
+  // at least one rate).
   const badPay = cleaned.find(
     (p) =>
       (p.pay_type === "fixed" && !((p.monthly_salary ?? 0) > 0)) ||
@@ -194,15 +199,30 @@ export async function saveRoster(
     };
   }
 
+  // Existing members. We match each incoming person to an existing row by id
+  // FIRST, then by code — so a save UPDATES in place and NEVER deletes +
+  // re-creates a member (which would orphan their login and, via the invoice
+  // FK's ON DELETE CASCADE, destroy their submissions).
+  const { data: existingRows } = await supabase
+    .from("supplier_members")
+    .select("id, code")
+    .eq("supplier_id", supplierId);
+  const existing = (existingRows as { id: string; code: string }[] | null) ?? [];
+  const byId = new Map(existing.map((e) => [e.id, e]));
+  const byCode = new Map(existing.map((e) => [e.code, e]));
+  const matchedIds = new Set<string>();
+  const saved: { id: string; code: string }[] = [];
+
   for (let i = 0; i < cleaned.length; i++) {
     const p = cleaned[i];
+    const code = p.code.trim();
     // Mirror the first rate onto the member row as a fallback for anything that
     // still reads a single rate; the authoritative list lives in
     // supplier_member_rates.
     const first = p.pay_type === "rate" ? p.rates.find((r) => (r.amount ?? 0) > 0) : null;
     const payFields = {
       name: p.name.trim(),
-      code: p.code.trim(),
+      code,
       role: p.role || null,
       sort_order: i,
       subjects: p.subjects ?? [],
@@ -214,13 +234,19 @@ export async function saveRoster(
       rate_task: first ? first.task : null,
     };
 
-    let memberId = p.id;
-    if (memberId) {
+    // Resolve which existing row this is: id wins, else the row with this code.
+    let target = (p.id ? byId.get(p.id) : undefined) ?? byCode.get(code);
+    if (target && matchedIds.has(target.id)) target = undefined; // already claimed
+
+    let memberId: string;
+    if (target) {
+      matchedIds.add(target.id);
       const { error } = await supabase
         .from("supplier_members")
         .update(payFields)
-        .eq("id", memberId);
+        .eq("id", target.id);
       if (error) return { error: rosterError(error) };
+      memberId = target.id;
     } else {
       const { data, error } = await supabase
         .from("supplier_members")
@@ -230,6 +256,7 @@ export async function saveRoster(
       if (error || !data) return { error: rosterError(error) };
       memberId = data.id;
     }
+    saved.push({ id: memberId, code });
 
     // Replace this member's rate set (rate members only).
     await supabase.from("supplier_member_rates").delete().eq("supplier_member_id", memberId);
@@ -251,8 +278,15 @@ export async function saveRoster(
     }
   }
 
+  // Delete only members the user actually removed — those not matched by any
+  // incoming person (by id or code).
+  const toDelete = existing.filter((e) => !matchedIds.has(e.id)).map((e) => e.id);
+  if (toDelete.length) {
+    await supabase.from("supplier_members").delete().in("id", toDelete);
+  }
+
   revalidatePath(`/hr/suppliers/${supplierId}`);
-  return {};
+  return { saved };
 }
 
 function rosterError(error: { code?: string; message: string } | null): string {
@@ -327,21 +361,42 @@ export async function createMemberLogin(
     user_metadata: { role: "supplier_member", full_name: member.name },
     app_metadata: { role: "supplier_member" },
   });
-  if (cErr || !created?.user) {
+
+  let profileId: string;
+  let recovered = false;
+  if (created?.user) {
+    profileId = created.user.id;
+  } else if (cErr && /already.*(been )?(registered|exists)/i.test(cErr.message)) {
+    // An auth account with this email already exists — almost always an orphan
+    // left behind before this bug was fixed. Relink it to this member and set
+    // the password HR just entered, instead of failing.
+    const existing = await findAuthUserByEmail(admin, email);
+    if (!existing) return { error: apiKeyError(cErr.message) };
+    const { error: updErr } = await admin.auth.admin.updateUserById(existing.id, {
+      password,
+      user_metadata: { role: "supplier_member", full_name: member.name },
+      app_metadata: { role: "supplier_member" },
+    });
+    if (updErr) return { error: updErr.message };
+    profileId = existing.id;
+    recovered = true;
+  } else {
     return { error: apiKeyError(cErr?.message ?? "Could not create the login account.") };
   }
-  const profileId = created.user.id;
 
   const { error } = await supabase
     .from("supplier_members")
     .update({ profile_id: profileId, email: hasEmail ? providedEmail : null })
     .eq("id", memberId);
   if (error) {
-    await admin.auth.admin.deleteUser(profileId);
+    // Only clean up an account we freshly created — never a recovered one.
+    if (!recovered) await admin.auth.admin.deleteUser(profileId);
     return { error: error.message };
   }
 
-  let message = `Login created — they sign in with ID ${member.code}.`;
+  let message = recovered
+    ? `Login re-linked — they sign in with ID ${member.code}.`
+    : `Login created — they sign in with ID ${member.code}.`;
   if (sendEmail) {
     try {
       const h = headers();

@@ -158,6 +158,17 @@ export function RosterEditor({
       setError(res.error);
       return;
     }
+    // Absorb the saved ids (matched by code) so a subsequent save updates these
+    // rows in place instead of treating them as new.
+    if (res.saved) {
+      const idByCode = new Map(res.saved.map((s) => [s.code, s.id]));
+      setPeople((prev) =>
+        prev.map((p) => {
+          const id = idByCode.get(p.code.trim());
+          return id ? { ...p, id } : p;
+        })
+      );
+    }
     setNotice("Roster saved.");
     router.refresh();
   }
