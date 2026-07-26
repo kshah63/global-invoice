@@ -113,6 +113,19 @@ export default async function PeoplePage({
     ratesByMember.set(r.team_member_id, arr);
   });
 
+  // Roster size per supplier.
+  const supplierIds = suppliers.map((s) => s.id);
+  const { data: rosterRows } = supplierIds.length
+    ? await supabase
+        .from("supplier_members")
+        .select("supplier_id")
+        .in("supplier_id", supplierIds)
+    : { data: [] as { supplier_id: string }[] };
+  const rosterCount = new Map<string, number>();
+  ((rosterRows as { supplier_id: string }[]) ?? []).forEach((r) => {
+    rosterCount.set(r.supplier_id, (rosterCount.get(r.supplier_id) ?? 0) + 1);
+  });
+
   return (
     <>
       <Flash ok={searchParams.ok} error={searchParams.error} />
@@ -212,6 +225,7 @@ export default async function PeoplePage({
                   <tr className="border-b border-ink-200 text-left text-xs uppercase tracking-wider text-ink-500">
                     <th className="px-5 py-3 font-semibold">Supplier</th>
                     <th className="px-5 py-3 font-semibold">Code</th>
+                    <th className="px-5 py-3 font-semibold">Roster</th>
                     <th className="px-5 py-3 font-semibold">Currency</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
                     <th className="px-5 py-3 text-right font-semibold">Actions</th>
@@ -231,6 +245,12 @@ export default async function PeoplePage({
                       </td>
                       <td className="px-5 py-3 font-mono text-xs text-ink-500">
                         {m.supplier_code}
+                      </td>
+                      <td className="px-5 py-3 tnum text-ink-700">
+                        {rosterCount.get(m.id) ?? 0}
+                        <span className="ml-1 text-xs text-ink-400">
+                          {(rosterCount.get(m.id) ?? 0) === 1 ? "person" : "people"}
+                        </span>
                       </td>
                       <td className="px-5 py-3">{m.currency}</td>
                       <td className="px-5 py-3">
