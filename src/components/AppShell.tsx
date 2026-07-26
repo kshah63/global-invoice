@@ -27,7 +27,7 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-ink-200 bg-white/85 backdrop-blur">
+      <header className="sticky top-0 z-30 bg-white/85 shadow-[0_1px_0_rgba(22,28,37,0.04)] backdrop-blur">
         <div className="app-container flex h-16 items-center justify-between gap-4">
           <Link href={home} className="rounded-lg">
             <BrandWordmark />
@@ -63,6 +63,7 @@ export function AppShell({
             ))}
           </nav>
         </div>
+        <div className="mv-rule" />
       </header>
       <main className="app-container py-8">{children}</main>
     </div>

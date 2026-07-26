@@ -24,15 +24,15 @@ export function NavLink({
     <Link
       href={href}
       className={cn(
-        "relative whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        "relative whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all",
         active
-          ? "bg-brand-50 text-brand-700"
+          ? "bg-brand-600 text-white shadow-card"
           : "text-ink-600 hover:bg-ink-100 hover:text-ink-900"
       )}
     >
       {label}
       {badge && (
-        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-500" />
+        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-gold-400 ring-2 ring-white" />
       )}
     </Link>
   );

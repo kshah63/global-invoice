@@ -14,6 +14,13 @@
   body {
     @apply bg-ink-50 text-ink-800 antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Signature: the whole app sits on faint graph paper (the MathVision
+       coordinate-plane motif). Barely visible — reads as texture, not lines. */
+    background-image:
+      linear-gradient(to right, rgba(29, 78, 137, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(29, 78, 137, 0.035) 1px, transparent 1px);
+    background-size: 27px 27px;
+    background-attachment: fixed;
   }
 
   /* Tabular figures everywhere numbers matter (amounts, invoice numbers) */
@@ -26,6 +33,7 @@
   h2,
   h3 {
     @apply font-serif tracking-tight text-ink-900;
+    font-feature-settings: "ss01";
   }
 
   ::selection {
@@ -54,15 +62,45 @@
   .hint {
     @apply text-xs text-ink-500;
   }
+
+  /* Signature tricolour hairline — the three brand colours, used to underline
+     the app header and the auth hero. */
+  .mv-rule {
+    height: 2px;
+    background-image: linear-gradient(
+      90deg,
+      theme("colors.brand.600") 0%,
+      theme("colors.gold.500") 52%,
+      theme("colors.teal.500") 100%
+    );
+  }
+
+  /* Small tracked kicker above headings. */
+  .mv-eyebrow {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.2em];
+  }
 }
 
-/* Subtle brand backdrop used on auth + shell */
+/* Deep-blue brand backdrop for auth — a lit coordinate plane: blueprint grid
+   over a soft colour mesh with a horizon glow up top. */
 .brand-mesh {
   background-color: #0d223d;
   background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    radial-gradient(at 50% -8%, rgba(255, 255, 255, 0.10) 0px, transparent 42%),
     radial-gradient(at 12% 18%, rgba(48, 102, 166, 0.55) 0px, transparent 55%),
     radial-gradient(at 85% 10%, rgba(192, 138, 34, 0.28) 0px, transparent 50%),
     radial-gradient(at 78% 88%, rgba(23, 127, 133, 0.40) 0px, transparent 55%);
+  background-size: 30px 30px, 30px 30px, auto, auto, auto, auto;
+}
+
+/* Every 5th grid line a touch stronger, for depth — layered element. */
+.brand-mesh-major {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 150px 150px;
 }
 
 /* Print styles: hide the app chrome, keep the invoice at a clean, readable size,
