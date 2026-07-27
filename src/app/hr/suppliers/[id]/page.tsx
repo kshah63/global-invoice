@@ -117,6 +117,7 @@ export default async function EditSupplier({
             email: supplier.email ?? "",
             supplier_code: supplier.supplier_code ?? "",
             currency: supplier.currency,
+            ship_to_address: supplier.ship_to_address,
             payment_details: supplier.payment_details,
           }}
         />

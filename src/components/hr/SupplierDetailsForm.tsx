@@ -39,6 +39,7 @@ export function SupplierDetailsForm({
   const [email, setEmail] = useState(initial?.email ?? "");
   const [supplierCode, setSupplierCode] = useState(initial?.supplier_code ?? "");
   const [currency, setCurrency] = useState<Currency>(initial?.currency ?? "SGD");
+  const [shipTo, setShipTo] = useState(initial?.ship_to_address ?? "");
   const [paymentDetails, setPaymentDetails] = useState(initial?.payment_details ?? "");
   const [password, setPassword] = useState("");
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
@@ -53,6 +54,7 @@ export function SupplierDetailsForm({
       email: email.trim(),
       supplier_code: supplierCode.trim(),
       currency,
+      ship_to_address: shipTo.trim() || null,
       payment_details: paymentDetails.trim() || null,
     };
   }
@@ -129,6 +131,17 @@ export function SupplierDetailsForm({
                 </option>
               ))}
             </Select>
+          </Field>
+          <Field
+            label="From address"
+            className="sm:col-span-2"
+            hint="Shown under “From” on the consolidated invoice. Pulls into the supplier's invoices automatically; the leader can override per invoice."
+          >
+            <Textarea
+              value={shipTo}
+              onChange={(e) => setShipTo(e.target.value)}
+              placeholder="The supplier's billing address"
+            />
           </Field>
           <Field label="Payment details" className="sm:col-span-2">
             <Textarea

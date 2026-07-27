@@ -20,6 +20,7 @@ export interface SupplierInput {
   email: string;
   supplier_code: string;
   currency: Currency;
+  ship_to_address: string | null;
   payment_details: string | null;
 }
 
@@ -107,6 +108,7 @@ export async function createSupplier(
       name: input.name,
       email: input.email,
       currency: input.currency,
+      ship_to_address: input.ship_to_address,
       payment_details: input.payment_details,
       use_hr_name: true,
     })
@@ -165,6 +167,7 @@ export async function updateSupplier(
       email: input.email,
       supplier_code: input.supplier_code.trim(),
       currency: input.currency,
+      ship_to_address: input.ship_to_address,
       payment_details: input.payment_details,
     })
     .eq("id", id);
@@ -173,6 +176,18 @@ export async function updateSupplier(
       return { error: "That supplier code is already in use — pick another." };
     }
     return { error: error.message };
+  }
+
+  // Fill the address into any editable consolidated invoice that doesn't have
+  // one yet, so it flows through without overwriting a per-invoice override.
+  if (input.ship_to_address) {
+    const admin = createAdminClient();
+    await admin
+      .from("invoices")
+      .update({ ship_to_address: input.ship_to_address })
+      .eq("team_member_id", id)
+      .in("status", ["draft", "submitted", "approved"])
+      .is("ship_to_address", null);
   }
 
   // Currency is snapshotted onto each invoice at creation. If HR changes the
