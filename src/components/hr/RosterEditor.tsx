@@ -19,7 +19,7 @@ import {
 import { saveRoster, type RosterPersonInput } from "@/actions/suppliers";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { Field, Input, Label, Select } from "@/components/ui/Field";
+import { Field, Input, Label, Select, Textarea } from "@/components/ui/Field";
 import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Alert } from "@/components/ui/Feedback";
 
@@ -39,6 +39,7 @@ export interface RosterPersonState {
   name: string;
   code: string;
   role: string;
+  payment_details: string;
   pay_type: PayType;
   monthly_salary: number | null;
   subjects: string[];
@@ -87,6 +88,7 @@ export function RosterEditor({
         name: "",
         code: "",
         role: "",
+        payment_details: "",
         pay_type: "fixed",
         monthly_salary: 0,
         subjects: [],
@@ -138,6 +140,7 @@ export function RosterEditor({
       name: p.name.trim(),
       code: p.code.trim(),
       role: p.role || null,
+      payment_details: p.payment_details.trim() || null,
       pay_type: p.pay_type,
       monthly_salary: p.pay_type === "fixed" ? Number(p.monthly_salary) || 0 : null,
       subjects: p.subjects,
@@ -244,6 +247,16 @@ export function RosterEditor({
                   value={p.subjects}
                   onChange={(v) => patch(p.key, { subjects: v })}
                   placeholder="Select subjects"
+                />
+              </Field>
+            </div>
+
+            <div className="mt-3">
+              <Field label="Bank details" hint="Shown to the leader when making transfers.">
+                <Textarea
+                  value={p.payment_details}
+                  onChange={(e) => patch(p.key, { payment_details: e.target.value })}
+                  placeholder="Bank / account details for their payout"
                 />
               </Field>
             </div>

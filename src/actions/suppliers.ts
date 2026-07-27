@@ -37,6 +37,7 @@ export interface RosterPersonInput {
   name: string;
   code: string;
   role: string | null;
+  payment_details: string | null; // their bank details (for the leader's transfers)
   pay_type: PayType;
   monthly_salary: number | null;
   subjects: string[];
@@ -266,6 +267,7 @@ export async function saveRoster(
       name: p.name.trim(),
       code,
       role: p.role || null,
+      payment_details: p.payment_details || null,
       sort_order: i,
       subjects: p.subjects ?? [],
       pay_type: p.pay_type,

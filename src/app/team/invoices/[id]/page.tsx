@@ -19,6 +19,7 @@ import {
   type MemberSubmissionRow,
 } from "@/components/invoice/MemberSubmissionsPanel";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
+import { RosterPayoutCard, type PayoutRow } from "@/components/team/RosterPayoutCard";
 import { deleteInvoice } from "@/actions/invoices";
 import type {
   Invoice,
@@ -69,6 +70,7 @@ export default async function TeamInvoiceDetail({
   let rates: TeamMemberRate[] = [];
   let roster: RosterPerson[] = [];
   let submissions: MemberSubmissionRow[] = [];
+  let payoutRows: PayoutRow[] = [];
   if (isSupplier) {
     const [{ data: rosterRows }, { data: subRows }] = await Promise.all([
       supabase
@@ -149,6 +151,25 @@ export default async function TeamInvoiceDetail({
         returnNote: s.return_note,
       }))
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
+
+    // Per-person payout total on this invoice + their bank details.
+    const totalByMember = new Map<string, number>();
+    items.forEach((it) => {
+      if (it.supplier_member_id) {
+        totalByMember.set(
+          it.supplier_member_id,
+          (totalByMember.get(it.supplier_member_id) ?? 0) + Number(it.line_total)
+        );
+      }
+    });
+    payoutRows = rosterMembers
+      .map((m) => ({
+        name: m.name,
+        role: m.role,
+        bank: m.payment_details,
+        total: totalByMember.get(m.id) ?? 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   } else {
     const { data: rateRows } = await supabase
       .from("team_member_rates")
@@ -179,6 +200,8 @@ export default async function TeamInvoiceDetail({
       </div>
 
       <Flash ok={searchParams.ok} error={searchParams.error} />
+
+      {isSupplier && <RosterPayoutCard rows={payoutRows} currency={invoice.currency} />}
 
       {editable ? (
         <>
