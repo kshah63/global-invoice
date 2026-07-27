@@ -110,7 +110,7 @@ export function InvoiceDocument({
 
       {/* Line items */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm print:min-w-0">
+        <table className="w-full min-w-[680px] border-collapse text-xs print:min-w-0">
           <colgroup>
             <col style={{ width: "11%" }} />
             <col style={{ width: "13%" }} />
@@ -122,15 +122,15 @@ export function InvoiceDocument({
           </colgroup>
           <thead>
             <tr className="border-y border-ink-200 text-left text-[0.7rem] uppercase tracking-wider text-ink-500 [&_th]:whitespace-nowrap">
-              <th className="py-2 pr-3 font-semibold">
+              <th className="py-1.5 pr-2 font-semibold">
                 {isSupplierInvoice ? "Person" : "Centre"}
               </th>
-              <th className="py-2 pr-3 font-semibold">Task</th>
-              <th className="py-2 pr-3 font-semibold">Note</th>
-              <th className="py-2 pr-3 text-right font-semibold">Sessions</th>
-              <th className="py-2 pr-3 text-right font-semibold">Hours</th>
-              <th className="py-2 pr-3 text-right font-semibold">Rate</th>
-              <th className="py-2 text-right font-semibold">Total</th>
+              <th className="py-1.5 pr-2 font-semibold">Task</th>
+              <th className="py-1.5 pr-2 font-semibold">Note</th>
+              <th className="py-1.5 pr-2 text-right font-semibold">Sessions</th>
+              <th className="py-1.5 pr-2 text-right font-semibold">Hours</th>
+              <th className="py-1.5 pr-2 text-right font-semibold">Rate</th>
+              <th className="py-1.5 text-right font-semibold">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink-100">
@@ -144,41 +144,41 @@ export function InvoiceDocument({
             {items.map((it) => {
               const fixed = it.rate_unit === "fixed";
               return (
-                <tr key={it.id} className="align-top">
-                  <td className="py-2.5 pr-3">
+                <tr key={it.id} className="align-middle">
+                  <td className="whitespace-nowrap py-1.5 pr-2">
                     {isSupplierInvoice
                       ? it.worked_by_name ?? "—"
                       : fixed
                         ? "—"
                         : it.centre}
                   </td>
-                  <td className="py-2.5 pr-3">{TASK_LABELS[it.task]}</td>
-                  <td className="py-2.5 pr-3 text-ink-600">
+                  <td className="whitespace-nowrap py-1.5 pr-2">{TASK_LABELS[it.task]}</td>
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-ink-600">
                     {it.note || "—"}
                     {it.receipt_path && (
                       <a
                         href={`/receipts/${it.id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-0.5 block text-xs font-medium text-brand-600 underline print:text-ink-600 print:no-underline"
+                        className="ml-2 whitespace-nowrap font-medium text-brand-600 underline print:text-ink-600 print:no-underline"
                       >
                         📎 Receipt
                       </a>
                     )}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tnum">
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
                     {fixed ? "—" : formatNumber(it.sessions)}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tnum">
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
                     {fixed ? "—" : formatNumber(it.hours)}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tnum">
+                  <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
                     {formatCurrency(it.rate_amount, currency)}
                     <span className="ml-1 text-xs text-ink-400">
                       {fixed ? "" : `/ ${RATE_UNIT_LABELS[it.rate_unit].replace("per ", "")}`}
                     </span>
                   </td>
-                  <td className="py-2.5 text-right font-medium tnum">
+                  <td className="whitespace-nowrap py-1.5 text-right font-medium tnum">
                     {formatCurrency(it.line_total, currency)}
                   </td>
                 </tr>

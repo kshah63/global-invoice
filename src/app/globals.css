@@ -126,17 +126,21 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  /* Table fits the page width — never scrolls or clips horizontally */
+  /* Line-items table: compact and single-line per row so a long invoice
+     (many people + adjustments) stays short. Columns size to content. */
   .print-area .overflow-x-auto {
     overflow: visible !important;
   }
   .print-area table {
     min-width: 0 !important;
     width: 100% !important;
-    table-layout: fixed;
+    table-layout: auto;
+    font-size: 0.7rem;
   }
   .print-area th,
   .print-area td {
-    overflow-wrap: break-word;
+    white-space: nowrap;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
   }
 }
