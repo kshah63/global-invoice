@@ -394,6 +394,11 @@ export async function createMemberLogin(
     return { error: error.message };
   }
 
+  // Pin the linked profile to supplier_member so they land on the member portal.
+  // The signup trigger only sets the role at account creation, so a recovered or
+  // mis-created account can otherwise keep the wrong role and route to /team.
+  await admin.from("profiles").update({ role: "supplier_member" }).eq("id", profileId);
+
   let message = recovered
     ? `Login re-linked — they sign in with ID ${member.code}.`
     : `Login created — they sign in with ID ${member.code}.`;
