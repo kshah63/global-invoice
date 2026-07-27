@@ -150,6 +150,14 @@ export async function updateSupplier(
 ): Promise<{ error?: string }> {
   await ensureHr();
   const supabase = createClient();
+
+  // Note the current currency so we can propagate a change to existing invoices.
+  const { data: before } = await supabase
+    .from("team_members")
+    .select("currency")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("team_members")
     .update({
@@ -166,6 +174,25 @@ export async function updateSupplier(
     }
     return { error: error.message };
   }
+
+  // Currency is snapshotted onto each invoice at creation. If HR changes the
+  // supplier's currency, cascade it to still-editable invoices (roster members'
+  // submissions + the consolidated invoice) so existing drafts aren't stranded
+  // on the old currency. Locked/paid invoices keep their historical currency.
+  if (before && (before as { currency: string }).currency !== input.currency) {
+    const admin = createAdminClient();
+    await admin
+      .from("supplier_member_invoices")
+      .update({ currency: input.currency })
+      .eq("supplier_id", id)
+      .neq("status", "locked");
+    await admin
+      .from("invoices")
+      .update({ currency: input.currency })
+      .eq("team_member_id", id)
+      .in("status", ["draft", "submitted", "approved"]);
+  }
+
   revalidatePath("/hr/team-members");
   revalidatePath(`/hr/suppliers/${id}`);
   return {};
