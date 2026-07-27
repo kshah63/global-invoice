@@ -122,15 +122,19 @@ export default async function MemberInvoiceDetail({
             rates={rates}
             supplierName={supplierName}
           />
-          {invoice.status === "draft" && (
+          {(invoice.status === "draft" || invoice.status === "returned") && (
             <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
               <form action={deleteMemberInvoice} className="flex items-center justify-between gap-3">
                 <div className="text-sm text-ink-600">
-                  Delete this draft. This cannot be undone.
+                  Delete this submission and start fresh. This cannot be undone.
                 </div>
                 <input type="hidden" name="invoice_id" value={invoice.id} />
-                <SubmitButton variant="danger" size="sm" confirm="Delete this draft permanently?">
-                  Delete draft
+                <SubmitButton
+                  variant="danger"
+                  size="sm"
+                  confirm="Delete this submission permanently and start fresh?"
+                >
+                  Delete submission
                 </SubmitButton>
               </form>
             </div>
