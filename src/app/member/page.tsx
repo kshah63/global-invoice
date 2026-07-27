@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/AppShell";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -44,9 +45,12 @@ export default async function MemberOverview({
     );
   }
 
+  // The supplier's team_members row isn't readable by a member under RLS, so
+  // read the name with the admin client (name only).
+  const admin = createAdminClient();
   const [{ data: supplier }, { data: periods }, { data: invoices }] =
     await Promise.all([
-      supabase
+      admin
         .from("team_members")
         .select("name")
         .eq("id", member.supplier_id)

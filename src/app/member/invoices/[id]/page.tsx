@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { periodLabel } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { periodLabel, type Currency } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
 import { Alert } from "@/components/ui/Feedback";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -38,6 +39,9 @@ export default async function MemberInvoiceDetail({
   if (!invRow) notFound();
   const invoice = invRow as SupplierMemberInvoice;
 
+  // The supplier's team_members row isn't readable by a member under RLS, so
+  // read its name + currency with the admin client (those two fields only).
+  const admin = createAdminClient();
   const [{ data: itemRows }, { data: memberRow }, { data: supplierRow }, { data: rateRows }] =
     await Promise.all([
       supabase
@@ -50,9 +54,9 @@ export default async function MemberInvoiceDetail({
         .select("*")
         .eq("id", invoice.supplier_member_id)
         .maybeSingle(),
-      supabase
+      admin
         .from("team_members")
-        .select("name")
+        .select("name, currency")
         .eq("id", invoice.supplier_id)
         .maybeSingle(),
       supabase
@@ -64,7 +68,23 @@ export default async function MemberInvoiceDetail({
 
   const items = (itemRows as SupplierMemberInvoiceItem[]) ?? [];
   const member = memberRow as SupplierMember | null;
-  const supplierName = (supplierRow as { name: string } | null)?.name ?? "your agency";
+  const supplier = supplierRow as { name: string; currency: Currency } | null;
+  const supplierName = supplier?.name ?? "your agency";
+
+  // Self-heal an editable draft whose currency drifted from the supplier's
+  // current currency (e.g. created before the supplier's currency was set, or
+  // when the RLS read defaulted it to SGD).
+  if (
+    supplier &&
+    (invoice.status === "draft" || invoice.status === "returned") &&
+    invoice.currency !== supplier.currency
+  ) {
+    await admin
+      .from("supplier_member_invoices")
+      .update({ currency: supplier.currency })
+      .eq("id", invoice.id);
+    invoice.currency = supplier.currency;
+  }
 
   const rates: MemberRate[] = ((rateRows as SupplierMemberRate[]) ?? []).map((r) => ({
     id: r.id,

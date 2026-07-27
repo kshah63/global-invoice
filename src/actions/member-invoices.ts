@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // --- Member: create their own invoice for an open period ------------------
 
@@ -42,8 +43,11 @@ export async function createMemberInvoice(formData: FormData) {
     .maybeSingle();
   if (existing) redirect(`/member/invoices/${existing.id}`);
 
-  // Currency follows the supplier.
-  const { data: supplier } = await supabase
+  // Currency follows the supplier. Read it with the admin client — a roster
+  // member can't select their supplier's team_members row under RLS, so an
+  // RLS read would return null and wrongly default the currency to SGD.
+  const admin = createAdminClient();
+  const { data: supplier } = await admin
     .from("team_members")
     .select("currency")
     .eq("id", member.supplier_id)
