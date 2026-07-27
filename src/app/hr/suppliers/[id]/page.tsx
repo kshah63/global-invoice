@@ -9,6 +9,7 @@ import { Flash } from "@/components/Flash";
 import { SupplierDetailsForm } from "@/components/hr/SupplierDetailsForm";
 import { RosterEditor } from "@/components/hr/RosterEditor";
 import { MemberLoginsCard } from "@/components/hr/MemberLoginsCard";
+import { ExportRosterLoginsCard } from "@/components/hr/ExportRosterLoginsCard";
 import { SupplierPasswordCard } from "@/components/hr/SupplierPasswordCard";
 import { deleteSupplier } from "@/actions/suppliers";
 import type { RateUnit, TaskType } from "@/lib/constants";
@@ -127,6 +128,8 @@ export default async function EditSupplier({
         />
 
         <MemberLoginsCard members={loginRows} />
+
+        <ExportRosterLoginsCard supplierId={supplier.id} />
 
         <SupplierPasswordCard supplierId={supplier.id} />
 
