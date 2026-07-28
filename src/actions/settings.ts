@@ -140,6 +140,102 @@ export async function createDepartmentHead(input: {
   return {};
 }
 
+// --- Update a department head ---------------------------------------------
+
+export async function updateDepartmentHead(
+  profileId: string,
+  input: { name: string; email: string; business: Centre; loginCode: string }
+): Promise<{ error?: string }> {
+  await ensureHr();
+  const code = (input.loginCode ?? "").trim().toUpperCase();
+  if (!/^[A-Za-z0-9]{4,6}$/.test(code)) {
+    return { error: "Login ID must be 4–6 letters or numbers." };
+  }
+
+  const admin = createAdminClient();
+
+  // Keep the login space unambiguous (exclude this account from the check).
+  const { data: tmHit } = await admin
+    .from("team_members")
+    .select("id")
+    .eq("employee_id", code)
+    .maybeSingle();
+  if (tmHit) return { error: "That ID is already used by a team member — pick another." };
+  const { data: supHit } = await admin
+    .from("team_members")
+    .select("id")
+    .eq("supplier_code", code)
+    .maybeSingle();
+  if (supHit) return { error: "That ID is already used by a supplier — pick another." };
+  const { data: smHit } = await admin
+    .from("supplier_members")
+    .select("id")
+    .eq("code", code)
+    .maybeSingle();
+  if (smHit) return { error: "That ID is already used by a roster member — pick another." };
+  const { data: profHit } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("login_code", code)
+    .neq("id", profileId)
+    .maybeSingle();
+  if (profHit) return { error: "That ID is already in use — pick another." };
+
+  // Only apply a real email (ignore the hidden placeholder we use for ID-only
+  // logins). If HR gives one, it becomes their login email too.
+  const providedEmail = (input.email ?? "").trim();
+  const hasEmail =
+    providedEmail.includes("@") && !providedEmail.endsWith("@dept.invoicing.local");
+
+  const authUpdate: {
+    email?: string;
+    user_metadata: Record<string, unknown>;
+    app_metadata: Record<string, unknown>;
+  } = {
+    user_metadata: {
+      role: "department_head",
+      full_name: input.name,
+      business: input.business,
+    },
+    app_metadata: { role: "department_head" },
+  };
+  if (hasEmail) authUpdate.email = providedEmail;
+  const { error: uErr } = await admin.auth.admin.updateUserById(profileId, authUpdate);
+  if (uErr) return { error: uErr.message };
+
+  const { error: pErr } = await admin
+    .from("profiles")
+    .update({
+      full_name: input.name,
+      business: input.business,
+      login_code: code,
+      role: "department_head",
+      ...(hasEmail ? { email: providedEmail } : {}),
+    })
+    .eq("id", profileId);
+  if (pErr) return { error: pErr.message };
+
+  revalidatePath("/hr/team-members");
+  revalidatePath(`/hr/department-heads/${profileId}`);
+  return {};
+}
+
+export async function resetDepartmentHeadPassword(
+  profileId: string,
+  newPassword: string
+): Promise<{ error?: string }> {
+  await ensureHr();
+  if (!newPassword || newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(profileId, {
+    password: newPassword,
+  });
+  if (error) return { error: error.message };
+  return {};
+}
+
 export async function deleteDepartmentHead(formData: FormData) {
   await ensureHr();
   const profileId = String(formData.get("profile_id"));

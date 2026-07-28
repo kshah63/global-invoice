@@ -302,6 +302,12 @@ export default async function PeoplePage({
                         {h.business}
                       </Badge>
                     )}
+                    <Link
+                      href={`/hr/department-heads/${h.id}`}
+                      className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                    >
+                      Edit
+                    </Link>
                     <form action={deleteDepartmentHead}>
                       <input type="hidden" name="profile_id" value={h.id} />
                       <SubmitButton

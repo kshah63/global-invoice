@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { resetTeamMemberPassword } from "@/actions/team-members";
+import { resetDepartmentHeadPassword } from "@/actions/settings";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
@@ -14,7 +15,13 @@ function randomPassword() {
   return out;
 }
 
-export function ResetPasswordCard({ teamMemberId }: { teamMemberId: string }) {
+export function ResetPasswordCard({
+  teamMemberId,
+  deptHeadId,
+}: {
+  teamMemberId?: string;
+  deptHeadId?: string;
+}) {
   const [pw, setPw] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -29,7 +36,9 @@ export function ResetPasswordCard({ teamMemberId }: { teamMemberId: string }) {
       return;
     }
     setLoading(true);
-    const res = await resetTeamMemberPassword(teamMemberId, pw);
+    const res = deptHeadId
+      ? await resetDepartmentHeadPassword(deptHeadId, pw)
+      : await resetTeamMemberPassword(teamMemberId!, pw);
     setLoading(false);
     if (res.error) {
       setError(res.error);
@@ -43,7 +52,7 @@ export function ResetPasswordCard({ teamMemberId }: { teamMemberId: string }) {
     <Card className="mt-8">
       <CardHeader
         title="Reset password"
-        description="Set a new login password for this team member."
+        description="Set a new login password for this account."
       />
       <CardBody>
         <form onSubmit={onSubmit} className="space-y-3">
