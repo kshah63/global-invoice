@@ -3,9 +3,9 @@
 import { useState } from "react";
 import {
   CENTRES,
-  MONTH_NAMES,
   TASKS,
   TASK_LABELS,
+  periodLabel,
   type Centre,
   type TaskType,
 } from "@/lib/constants";
@@ -26,6 +26,12 @@ interface IndividualBlock {
   items: ItemRow[];
 }
 
+export interface InitialIndividual {
+  teamMemberId: string;
+  notes: string;
+  items: CheckItemInput[];
+}
+
 let seq = 0;
 const key = () => `c-${seq++}-${Math.round(Math.random() * 1e6)}`;
 
@@ -40,15 +46,27 @@ const blankRow = (sort_order: number): ItemRow => ({
 
 export function MultiCheckEditor({
   teamMembers,
+  year,
+  month,
   defaultBusiness,
+  initialIndividuals,
 }: {
   teamMembers: { id: string; name: string; employee_id: string | null }[];
+  year: number;
+  month: number;
   defaultBusiness: Centre;
+  // Individuals already submitted for this month, so the head can review, edit
+  // or add to them rather than starting from scratch.
+  initialIndividuals?: InitialIndividual[];
 }) {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
   const [business, setBusiness] = useState<Centre>(defaultBusiness);
+
+  function toBlock(ind: InitialIndividual): IndividualBlock {
+    const items = ind.items.length
+      ? ind.items.map((it) => ({ ...it, key: key() }))
+      : [blankRow(0)];
+    return { key: key(), teamMemberId: ind.teamMemberId, notes: ind.notes, items };
+  }
 
   // Default a fresh block to the first individual not already picked, so the
   // head can add several people without re-picking each dropdown.
@@ -58,19 +76,20 @@ export function MultiCheckEditor({
     return free?.id ?? teamMembers[0]?.id ?? "";
   }
 
-  const [individuals, setIndividuals] = useState<IndividualBlock[]>(() => [
-    {
-      key: key(),
-      teamMemberId: teamMembers[0]?.id ?? "",
-      notes: "",
-      items: [blankRow(0)],
-    },
-  ]);
+  const [individuals, setIndividuals] = useState<IndividualBlock[]>(() =>
+    initialIndividuals && initialIndividuals.length
+      ? initialIndividuals.map(toBlock)
+      : [
+          {
+            key: key(),
+            teamMemberId: teamMembers[0]?.id ?? "",
+            notes: "",
+            items: [blankRow(0)],
+          },
+        ]
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const years: number[] = [];
-  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) years.push(y);
 
   function patchBlock(bk: string, p: Partial<IndividualBlock>) {
     setIndividuals((prev) => prev.map((b) => (b.key === bk ? { ...b, ...p } : b)));
@@ -148,38 +167,21 @@ export function MultiCheckEditor({
     }
   }
 
-  const periodLabel = `${MONTH_NAMES[month - 1]} ${year}`;
+  const period = periodLabel(year, month);
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {/* Shared period — set once for everyone in this submission. */}
+      {/* The month is fixed by the period HR opened; only the business is a
+          choice, and it applies to everyone in this cross-check. */}
       <Card>
         <CardHeader
-          title="Period"
-          description="Applies to every individual in this cross-check."
+          title={`Cross-check for ${period}`}
+          description="Add each individual below with the sessions and hours they worked."
         />
-        <CardBody className="grid gap-4 sm:grid-cols-3">
-          <Field label="Month" required>
-            <Select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {MONTH_NAMES.map((m, i) => (
-                <option key={m} value={i + 1}>
-                  {m}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Year" required>
-            <Select value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {years.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Business" required>
+        <CardBody>
+          <Field label="Business" required className="sm:max-w-xs">
             <Select value={business} onChange={(e) => setBusiness(e.target.value as Centre)}>
               {CENTRES.map((c) => (
                 <option key={c} value={c}>
@@ -196,7 +198,7 @@ export function MultiCheckEditor({
         <Card key={block.key}>
           <CardHeader
             title={`Individual ${bi + 1}`}
-            description={`Sessions and hours for ${periodLabel}.`}
+            description={`Sessions and hours for ${period}.`}
             action={
               individuals.length > 1 ? (
                 <Button
@@ -281,7 +283,7 @@ export function MultiCheckEditor({
                   <button
                     type="button"
                     onClick={() => removeRow(block.key, row.key)}
-                    className="h-10 w-full rounded-lg text-xs font-medium text-red-600 hover:bg-red-50"
+                    className="h-10 w-full rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
                     disabled={block.items.length === 1}
                   >
                     ✕
@@ -290,7 +292,7 @@ export function MultiCheckEditor({
               </div>
             ))}
 
-            <div className="flex items-center justify-between gap-3">
+            <div>
               <Button
                 type="button"
                 size="sm"
