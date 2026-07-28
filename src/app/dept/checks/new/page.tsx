@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
 import { Alert } from "@/components/ui/Feedback";
-import { CheckEditor } from "@/components/dept/CheckEditor";
+import { MultiCheckEditor } from "@/components/dept/MultiCheckEditor";
 import type { Centre } from "@/lib/constants";
 import type { TeamMember } from "@/lib/types";
 
@@ -24,14 +24,14 @@ export default async function NewCheck() {
       </div>
       <PageHeader
         title="New cross-check"
-        description="Report the sessions and hours a teacher worked this month."
+        description="Pick the month once, then add each individual with their sessions and hours."
       />
       {members.length === 0 ? (
         <Alert tone="warning">
           There are no active team members to report on yet.
         </Alert>
       ) : (
-        <CheckEditor
+        <MultiCheckEditor
           teamMembers={members}
           defaultBusiness={(profile.business as Centre) ?? "MathVision"}
         />
