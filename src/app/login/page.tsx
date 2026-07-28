@@ -70,33 +70,34 @@ export default async function LoginPage({
           >
             Invoicing for the Global Online team
           </div>
-          <p
-            className="mt-5 animate-fade-in font-serif text-[1.95rem] font-medium leading-[1.3] text-white"
+          <div
+            className="mv-rule mt-5 w-24 animate-fade-in rounded-full"
             style={{ animationDelay: "140ms" }}
-          >
-            Track <span className="font-semibold">your time</span> through the
-            month, submit a{" "}
-            <span className="text-gold-300">clean, consistent invoice</span>, and
-            always know exactly where it stands.
-          </p>
-          <div
-            className="mv-rule mt-7 w-24 animate-fade-in rounded-full"
-            style={{ animationDelay: "220ms" }}
           />
-          <div
-            className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1 animate-fade-in text-sm font-medium text-brand-100"
-            style={{ animationDelay: "280ms" }}
-          >
-            <span>Log your time</span>
-            <span aria-hidden className="text-gold-300">
-              →
-            </span>
-            <span>Submit your invoice</span>
-            <span aria-hidden className="text-gold-300">
-              →
-            </span>
-            <span>Get paid</span>
-          </div>
+          <ol className="mt-9">
+            {["Log your time", "Submit your invoice", "Get paid"].map(
+              (label, i, arr) => (
+                <li
+                  key={label}
+                  className="relative flex items-center gap-5 pb-7 animate-fade-in last:pb-0"
+                  style={{ animationDelay: `${200 + i * 90}ms` }}
+                >
+                  {i < arr.length - 1 && (
+                    <span
+                      aria-hidden
+                      className="absolute left-[23px] top-[52px] h-7 w-px bg-white/15"
+                    />
+                  )}
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gold-300/40 font-serif text-xl font-semibold text-gold-300">
+                    {i + 1}
+                  </span>
+                  <span className="font-serif text-[1.6rem] font-medium text-white">
+                    {label}
+                  </span>
+                </li>
+              )
+            )}
+          </ol>
         </div>
 
         <p
