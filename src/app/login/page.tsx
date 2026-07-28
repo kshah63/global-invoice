@@ -21,22 +21,42 @@ export default async function LoginPage({
       <div className="brand-mesh relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
         {/* Heavier grid lines for depth */}
         <div className="brand-mesh-major pointer-events-none absolute inset-0" />
-        {/* A plotted, rising curve — MathVision's motif drawn large and faint */}
+        {/* The month, then the invoice — a calendar and a line-item document
+            drawn large and faint, the two halves of what this tool does. */}
         <svg
-          viewBox="0 0 200 200"
+          viewBox="0 0 220 220"
           fill="none"
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-8 -right-4 h-[440px] w-[440px] opacity-[0.14]"
+          className="pointer-events-none absolute -bottom-10 -right-6 h-[460px] w-[460px] opacity-[0.15]"
         >
-          <path d="M24 176 V20 M24 176 H184" stroke="white" strokeWidth="1.5" />
-          <path
-            d="M24 168 C58 156 74 104 104 92 C132 80 150 52 184 26"
-            stroke="white"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-          <circle cx="104" cy="92" r="4.5" fill="white" />
-          <circle cx="184" cy="26" r="7" fill="#f05a2b" />
+          {/* Calendar — the month, with a few sessions marked */}
+          <g stroke="white" strokeLinecap="round">
+            <path d="M40 18 V30 M100 18 V30" strokeWidth="2" />
+            <rect x="20" y="24" width="100" height="92" rx="9" strokeWidth="2" />
+            <path d="M20 46 H120" strokeWidth="1.5" />
+          </g>
+          {[62, 80, 98].map((cy) =>
+            [34, 52, 70, 88, 106].map((cx) => (
+              <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="3" stroke="white" strokeWidth="1.5" />
+            ))
+          )}
+          <circle cx="52" cy="62" r="3" fill="white" stroke="none" />
+          <circle cx="88" cy="80" r="3" fill="white" stroke="none" />
+          <circle cx="70" cy="98" r="3" fill="white" stroke="none" />
+          <circle cx="106" cy="62" r="3.4" fill="#f05a2b" stroke="none" />
+
+          {/* Invoice — the line items and a highlighted total */}
+          <rect x="104" y="78" width="100" height="124" rx="10" fill="#1a1c46" stroke="white" strokeWidth="2" />
+          <g stroke="white" strokeLinecap="round">
+            <path d="M118 98 H170" strokeWidth="3" />
+            <path d="M118 108 H152" strokeWidth="2" opacity="0.6" />
+            <path d="M118 126 H164 M178 126 H190" strokeWidth="2" opacity="0.85" />
+            <path d="M118 140 H164 M178 140 H190" strokeWidth="2" opacity="0.85" />
+            <path d="M118 154 H164 M178 154 H190" strokeWidth="2" opacity="0.85" />
+            <path d="M118 170 H190" strokeWidth="1.5" opacity="0.5" />
+            <path d="M118 184 H146" strokeWidth="3" />
+          </g>
+          <rect x="168" y="179" width="22" height="9" rx="2" fill="#f05a2b" />
         </svg>
 
         <div className="relative animate-fade-in">
@@ -48,26 +68,22 @@ export default async function LoginPage({
             className="mv-eyebrow animate-fade-in text-gold-300"
             style={{ animationDelay: "80ms" }}
           >
-            For the Global Online team
+            Invoicing for the Global Online team
           </div>
-          <h1
-            className="mt-4 animate-fade-in font-serif text-[2.75rem] font-semibold leading-[1.05] text-white"
+          <p
+            className="mt-5 animate-fade-in font-serif text-[1.95rem] font-medium leading-[1.3] text-white"
             style={{ animationDelay: "140ms" }}
           >
-            Invoice with <span className="text-gold-300">confidence</span>, month
-            after month.
-          </h1>
-          <div
-            className="mv-rule mt-6 w-24 animate-fade-in rounded-full"
-            style={{ animationDelay: "200ms" }}
-          />
-          <p
-            className="mt-6 animate-fade-in text-brand-100"
-            style={{ animationDelay: "260ms" }}
-          >
-            Track your sessions and hours through the month, submit a clean,
-            consistent invoice, and always know exactly where it stands.
+            Track your{" "}
+            <span className="font-semibold">sessions and hours</span> through the
+            month, submit a{" "}
+            <span className="text-gold-300">clean, consistent invoice</span>, and
+            always know exactly where it stands.
           </p>
+          <div
+            className="mv-rule mt-7 w-24 animate-fade-in rounded-full"
+            style={{ animationDelay: "220ms" }}
+          />
         </div>
 
         <p
