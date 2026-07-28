@@ -20,6 +20,7 @@ import {
 } from "@/components/invoice/MemberSubmissionsPanel";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { RosterPayoutCard, type PayoutRow } from "@/components/team/RosterPayoutCard";
+import { InvoiceTabs } from "@/components/team/InvoiceTabs";
 import { deleteInvoice } from "@/actions/invoices";
 import type {
   Invoice,
@@ -179,6 +180,72 @@ export default async function TeamInvoiceDetail({
     rates = (rateRows as TeamMemberRate[]) ?? [];
   }
 
+  const deleteDraft =
+    editable && invoice.status === "draft" ? (
+      <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
+        <form action={deleteInvoice} className="flex items-center justify-between gap-3">
+          <div className="text-sm text-ink-600">
+            Delete this draft invoice. This cannot be undone.
+          </div>
+          <input type="hidden" name="invoice_id" value={invoice.id} />
+          <SubmitButton
+            variant="danger"
+            size="sm"
+            confirm="Delete this draft invoice permanently?"
+          >
+            Delete draft
+          </SubmitButton>
+        </form>
+      </div>
+    ) : null;
+
+  // The main invoice content (editor when editable, document when locked). For
+  // suppliers this becomes the "Invoice" tab, with roster payout alongside it.
+  const invoiceMain = editable ? (
+    <>
+      {isSupplier ? (
+        <>
+          <MemberSubmissionsPanel
+            consolidatedInvoiceId={invoice.id}
+            submissions={submissions}
+          />
+          <SupplierInvoiceEditor
+            invoice={invoice}
+            initialItems={items}
+            roster={roster}
+            supplierName={tm?.name ?? invoice.display_name}
+            submissionCount={submissions.filter((s) => s.status === "submitted").length}
+          />
+        </>
+      ) : (
+        <InvoiceEditor
+          invoice={invoice}
+          initialItems={items}
+          rates={rates}
+          teamMember={{
+            name: tm?.name ?? invoice.display_name,
+            fixed_salary: tm?.fixed_salary ?? null,
+          }}
+        />
+      )}
+      {deleteDraft}
+    </>
+  ) : (
+    <>
+      <Alert tone={invoice.status === "paid" ? "success" : "info"} className="mb-5">
+        {invoice.status === "paid"
+          ? "This invoice has been paid."
+          : "This invoice is locked by HR and can no longer be edited."}
+      </Alert>
+      <div className="mb-4 flex justify-end">
+        <Button href={`/print/invoice/${invoice.id}`} variant="neutral" size="sm">
+          Download / Print
+        </Button>
+      </div>
+      <InvoiceDocument invoice={invoice} items={items} teamMember={tm} />
+    </>
+  );
+
   return (
     <>
       <div className="mb-4">
@@ -201,67 +268,19 @@ export default async function TeamInvoiceDetail({
 
       <Flash ok={searchParams.ok} error={searchParams.error} />
 
-      {isSupplier && <RosterPayoutCard rows={payoutRows} currency={invoice.currency} />}
-
-      {editable ? (
-        <>
-          {isSupplier ? (
-            <>
-              <MemberSubmissionsPanel
-                consolidatedInvoiceId={invoice.id}
-                submissions={submissions}
-              />
-              <SupplierInvoiceEditor
-                invoice={invoice}
-                initialItems={items}
-                roster={roster}
-                supplierName={tm?.name ?? invoice.display_name}
-                submissionCount={submissions.filter((s) => s.status === "submitted").length}
-              />
-            </>
-          ) : (
-            <InvoiceEditor
-              invoice={invoice}
-              initialItems={items}
-              rates={rates}
-              teamMember={{
-                name: tm?.name ?? invoice.display_name,
-                fixed_salary: tm?.fixed_salary ?? null,
-              }}
-            />
-          )}
-          {invoice.status === "draft" && (
-            <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
-              <form action={deleteInvoice} className="flex items-center justify-between gap-3">
-                <div className="text-sm text-ink-600">
-                  Delete this draft invoice. This cannot be undone.
-                </div>
-                <input type="hidden" name="invoice_id" value={invoice.id} />
-                <SubmitButton
-                  variant="danger"
-                  size="sm"
-                  confirm="Delete this draft invoice permanently?"
-                >
-                  Delete draft
-                </SubmitButton>
-              </form>
-            </div>
-          )}
-        </>
+      {isSupplier ? (
+        <InvoiceTabs
+          tabs={[
+            { key: "invoice", label: "Invoice", content: invoiceMain },
+            {
+              key: "payout",
+              label: "Roster payout",
+              content: <RosterPayoutCard rows={payoutRows} currency={invoice.currency} />,
+            },
+          ]}
+        />
       ) : (
-        <>
-          <Alert tone={invoice.status === "paid" ? "success" : "info"} className="mb-5">
-            {invoice.status === "paid"
-              ? "This invoice has been paid."
-              : "This invoice is locked by HR and can no longer be edited."}
-          </Alert>
-          <div className="mb-4 flex justify-end">
-            <Button href={`/print/invoice/${invoice.id}`} variant="neutral" size="sm">
-              Download / Print
-            </Button>
-          </div>
-          <InvoiceDocument invoice={invoice} items={items} teamMember={tm} />
-        </>
+        invoiceMain
       )}
     </>
   );
