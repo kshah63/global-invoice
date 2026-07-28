@@ -68,25 +68,19 @@ export function MultiCheckEditor({
     return { key: key(), teamMemberId: ind.teamMemberId, notes: ind.notes, items };
   }
 
-  // Default a fresh block to the first individual not already picked, so the
-  // head can add several people without re-picking each dropdown.
-  function nextMemberId(blocks: IndividualBlock[]): string {
-    const used = new Set(blocks.map((b) => b.teamMemberId));
-    const free = teamMembers.find((t) => !used.has(t.id));
-    return free?.id ?? teamMembers[0]?.id ?? "";
-  }
+  // Fresh blocks start unselected so the head consciously picks each person
+  // from the dropdown rather than accidentally reporting on whoever is first.
+  const emptyBlock = (): IndividualBlock => ({
+    key: key(),
+    teamMemberId: "",
+    notes: "",
+    items: [blankRow(0)],
+  });
 
   const [individuals, setIndividuals] = useState<IndividualBlock[]>(() =>
     initialIndividuals && initialIndividuals.length
       ? initialIndividuals.map(toBlock)
-      : [
-          {
-            key: key(),
-            teamMemberId: teamMembers[0]?.id ?? "",
-            notes: "",
-            items: [blankRow(0)],
-          },
-        ]
+      : [emptyBlock()]
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -95,10 +89,7 @@ export function MultiCheckEditor({
     setIndividuals((prev) => prev.map((b) => (b.key === bk ? { ...b, ...p } : b)));
   }
   function addIndividual() {
-    setIndividuals((prev) => [
-      ...prev,
-      { key: key(), teamMemberId: nextMemberId(prev), notes: "", items: [blankRow(0)] },
-    ]);
+    setIndividuals((prev) => [...prev, emptyBlock()]);
   }
   function removeIndividual(bk: string) {
     setIndividuals((prev) => prev.filter((b) => b.key !== bk));
@@ -130,13 +121,24 @@ export function MultiCheckEditor({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (individuals.length === 0) {
-      setError("Add at least one individual.");
+    // A block "has data" if it names a person or has any sessions/hours/note.
+    const hasData = (b: IndividualBlock) =>
+      b.teamMemberId ||
+      b.notes.trim() ||
+      b.items.some(
+        (r) =>
+          (Number(r.sessions) || 0) > 0 ||
+          (Number(r.hours) || 0) > 0 ||
+          (r.note && r.note.toString().trim())
+      );
+    // Catch a filled-in entry where no individual was chosen.
+    if (individuals.some((b) => !b.teamMemberId && hasData(b))) {
+      setError("Choose an individual for each entry (or clear it before submitting).");
       return;
     }
     const picked = individuals.filter((b) => b.teamMemberId);
     if (picked.length === 0) {
-      setError("Select an individual for each entry.");
+      setError("Select an individual to cross-check.");
       return;
     }
     const ids = picked.map((b) => b.teamMemberId);
@@ -218,7 +220,11 @@ export function MultiCheckEditor({
                 value={block.teamMemberId}
                 onChange={(e) => patchBlock(block.key, { teamMemberId: e.target.value })}
               >
-                {teamMembers.length === 0 && <option value="">No team members</option>}
+                <option value="">
+                  {teamMembers.length === 0
+                    ? "No team members"
+                    : "Select individual…"}
+                </option>
                 {teamMembers.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} ({t.employee_id})
