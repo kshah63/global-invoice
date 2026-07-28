@@ -74,8 +74,7 @@ export default async function LoginPage({
             className="mt-5 animate-fade-in font-serif text-[1.95rem] font-medium leading-[1.3] text-white"
             style={{ animationDelay: "140ms" }}
           >
-            Track your{" "}
-            <span className="font-semibold">sessions and hours</span> through the
+            Track <span className="font-semibold">your time</span> through the
             month, submit a{" "}
             <span className="text-gold-300">clean, consistent invoice</span>, and
             always know exactly where it stands.
@@ -84,6 +83,20 @@ export default async function LoginPage({
             className="mv-rule mt-7 w-24 animate-fade-in rounded-full"
             style={{ animationDelay: "220ms" }}
           />
+          <div
+            className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1 animate-fade-in text-sm font-medium text-brand-100"
+            style={{ animationDelay: "280ms" }}
+          >
+            <span>Log your time</span>
+            <span aria-hidden className="text-gold-300">
+              →
+            </span>
+            <span>Submit your invoice</span>
+            <span aria-hidden className="text-gold-300">
+              →
+            </span>
+            <span>Get paid</span>
+          </div>
         </div>
 
         <p
