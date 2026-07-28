@@ -123,9 +123,12 @@ export async function createDepartmentHead(input: {
     return { error: error?.message ?? "Could not create the account." };
   }
 
+  // Set login_code AND pin the role explicitly. The signup trigger derives the
+  // role from app_metadata at creation, but if that doesn't stick the account
+  // defaults to team_member and lands on the wrong portal — so set it here too.
   const { error: codeErr } = await admin
     .from("profiles")
-    .update({ login_code: code })
+    .update({ login_code: code, role: "department_head" })
     .eq("id", created.user.id);
   if (codeErr) {
     // Roll back the orphaned auth user so the code/email can be reused.
