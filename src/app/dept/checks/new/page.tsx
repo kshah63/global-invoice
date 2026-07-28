@@ -124,8 +124,10 @@ export default async function NewCheck({
     .order("created_at");
   const checks = (existingChecks as DeptHeadCheck[]) ?? [];
 
+  // Cross-checks always belong to the department head's own business.
+  const business: Centre = (profile.business as Centre) ?? "MathVision";
+
   let initialIndividuals: InitialIndividual[] | undefined;
-  let initialBusiness: Centre = (profile.business as Centre) ?? "MathVision";
   if (checks.length) {
     const { data: itemData } = await supabase
       .from("dept_head_check_items")
@@ -141,7 +143,6 @@ export default async function NewCheck({
       arr.push(it);
       itemsByCheck.set(it.check_id, arr);
     });
-    initialBusiness = checks[0].business;
     initialIndividuals = checks.map((c) => ({
       teamMemberId: c.team_member_id,
       notes: c.notes ?? "",
@@ -171,7 +172,7 @@ export default async function NewCheck({
         teamMembers={members}
         year={selected.year}
         month={selected.month}
-        defaultBusiness={initialBusiness}
+        business={business}
         initialIndividuals={initialIndividuals}
       />
     </>

@@ -52,13 +52,12 @@ export default async function EditCheck({
 
       <CheckEditor
         teamMembers={members}
-        defaultBusiness={(profile.business as Centre) ?? "MathVision"}
+        business={(profile.business as Centre) ?? check.business}
         initial={{
           id: check.id,
           teamMemberId: check.team_member_id,
           year: check.period_year,
           month: check.period_month,
-          business: check.business,
           notes: check.notes ?? "",
           items: items.map((i) => ({
             task: i.task,

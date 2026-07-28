@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  CENTRES,
   MONTH_NAMES,
   TASKS,
   TASK_LABELS,
@@ -24,17 +23,17 @@ const key = () => `c-${seq++}-${Math.round(Math.random() * 1e6)}`;
 
 export function CheckEditor({
   teamMembers,
-  defaultBusiness,
+  business,
   initial,
 }: {
   teamMembers: { id: string; name: string; employee_id: string | null }[];
-  defaultBusiness: Centre;
+  // Fixed to the department head's own business — not editable here.
+  business: Centre;
   initial?: {
     id: string;
     teamMemberId: string;
     year: number;
     month: number;
-    business: Centre;
     notes: string;
     items: CheckItemInput[];
   };
@@ -45,9 +44,6 @@ export function CheckEditor({
   );
   const [year, setYear] = useState(initial?.year ?? now.getFullYear());
   const [month, setMonth] = useState(initial?.month ?? now.getMonth() + 1);
-  const [business, setBusiness] = useState<Centre>(
-    initial?.business ?? defaultBusiness
-  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [items, setItems] = useState<ItemRow[]>(
     (initial?.items ?? [{ task: "teaching", note: null, sessions: 0, hours: 0, sort_order: 0 }]).map(
@@ -107,7 +103,7 @@ export function CheckEditor({
       {error && <Alert tone="danger">{error}</Alert>}
 
       <Card>
-        <CardHeader title="Details" />
+        <CardHeader title="Details" description={`Business: ${business}`} />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Team member" required>
             <Select
@@ -118,15 +114,6 @@ export function CheckEditor({
               {teamMembers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} ({t.employee_id})
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Business" required>
-            <Select value={business} onChange={(e) => setBusiness(e.target.value as Centre)}>
-              {CENTRES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
                 </option>
               ))}
             </Select>

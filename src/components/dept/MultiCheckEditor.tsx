@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  CENTRES,
   TASKS,
   TASK_LABELS,
   periodLabel,
@@ -48,19 +47,19 @@ export function MultiCheckEditor({
   teamMembers,
   year,
   month,
-  defaultBusiness,
+  business,
   initialIndividuals,
 }: {
   teamMembers: { id: string; name: string; employee_id: string | null }[];
   year: number;
   month: number;
-  defaultBusiness: Centre;
+  // Fixed to the department head's own business — cross-checks always belong
+  // to the centre they were set up for.
+  business: Centre;
   // Individuals already submitted for this month, so the head can review, edit
   // or add to them rather than starting from scratch.
   initialIndividuals?: InitialIndividual[];
 }) {
-  const [business, setBusiness] = useState<Centre>(defaultBusiness);
-
   function toBlock(ind: InitialIndividual): IndividualBlock {
     const items = ind.items.length
       ? ind.items.map((it) => ({ ...it, key: key() }))
@@ -175,23 +174,17 @@ export function MultiCheckEditor({
     <form onSubmit={onSubmit} className="space-y-6">
       {error && <Alert tone="danger">{error}</Alert>}
 
-      {/* The month is fixed by the period HR opened; only the business is a
-          choice, and it applies to everyone in this cross-check. */}
+      {/* Both the month (from the period HR opened) and the business (the head's
+          own centre) are fixed — shown here for context, not editable. */}
       <Card>
-        <CardHeader
-          title={`Cross-check for ${period}`}
-          description="Add each individual below with the sessions and hours they worked."
-        />
         <CardBody>
-          <Field label="Business" required className="sm:max-w-xs">
-            <Select value={business} onChange={(e) => setBusiness(e.target.value as Centre)}>
-              {CENTRES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <h2 className="text-lg font-semibold text-ink-900">
+            Cross-check for {period}
+          </h2>
+          <p className="mt-0.5 text-sm text-ink-500">
+            {business} · Add each individual below with the sessions and hours
+            they worked.
+          </p>
         </CardBody>
       </Card>
 

@@ -31,6 +31,9 @@ export async function saveCheck(
   if (!session || session.profile.role !== "department_head") redirect("/login");
 
   const supabase = createClient();
+  // A cross-check always belongs to the head's own business — never trust a
+  // business supplied by the client.
+  const business = session.profile.business ?? input.business;
   let checkId = input.checkId ?? null;
 
   if (checkId) {
@@ -40,7 +43,7 @@ export async function saveCheck(
         team_member_id: input.teamMemberId,
         period_year: input.year,
         period_month: input.month,
-        business: input.business,
+        business,
         notes: input.notes,
       })
       .eq("id", checkId);
@@ -54,7 +57,7 @@ export async function saveCheck(
         team_member_id: input.teamMemberId,
         period_year: input.year,
         period_month: input.month,
-        business: input.business,
+        business,
         notes: input.notes,
       })
       .select("id")
@@ -118,6 +121,9 @@ export async function saveChecks(
   if (!session || session.profile.role !== "department_head") redirect("/login");
 
   const supabase = createClient();
+  // Cross-checks always belong to the head's own business — ignore any business
+  // supplied by the client.
+  const business = session.profile.business ?? input.business;
 
   // Guard against the same teacher appearing twice in one submission — the
   // second would silently overwrite the first.
@@ -164,7 +170,7 @@ export async function saveChecks(
     if (checkId) {
       const { error } = await supabase
         .from("dept_head_checks")
-        .update({ business: input.business, notes: ind.notes })
+        .update({ business, notes: ind.notes })
         .eq("id", checkId);
       if (error) return { error: error.message };
       await supabase.from("dept_head_check_items").delete().eq("check_id", checkId);
@@ -176,7 +182,7 @@ export async function saveChecks(
           team_member_id: ind.teamMemberId,
           period_year: input.year,
           period_month: input.month,
-          business: input.business,
+          business,
           notes: ind.notes,
         })
         .select("id")
