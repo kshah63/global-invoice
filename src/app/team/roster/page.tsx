@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
-import { Card, CardBody } from "@/components/ui/Card";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { formatCurrency } from "@/lib/format";
 import {
   ROSTER_ROLE_LABELS,
   RATE_UNIT_LABELS,
+  periodLabel,
   type Currency,
   type RateUnit,
   type RosterRole,
@@ -48,6 +49,7 @@ export default async function RosterPage() {
     .order("sort_order")
     .order("name");
   const members = (memberRows as SupplierMember[]) ?? [];
+  const activeCount = members.filter((m) => m.active).length;
 
   const ids = members.map((m) => m.id);
   const { data: rateRows } = ids.length
@@ -85,12 +87,111 @@ export default async function RosterPage() {
     return list;
   }
 
+  // Submissions by month: how many people have handed in their time, and how
+  // many are still outstanding. We look across all of this supplier's member
+  // submissions plus any open months (so a month with none still appears).
+  const [{ data: subAll }, { data: openP }] = await Promise.all([
+    supabase
+      .from("supplier_member_invoices")
+      .select("period_year, period_month, supplier_member_id, status")
+      .eq("supplier_id", supplier.id),
+    supabase.from("invoice_periods").select("year, month").eq("is_open", true),
+  ]);
+
+  type SubRow = {
+    period_year: number;
+    period_month: number;
+    supplier_member_id: string;
+    status: string;
+  };
+  const monthsSet = new Map<string, { year: number; month: number }>();
+  const submittedByMonth = new Map<string, Set<string>>();
+  ((subAll as SubRow[]) ?? []).forEach((s) => {
+    const k = `${s.period_year}-${s.period_month}`;
+    monthsSet.set(k, { year: s.period_year, month: s.period_month });
+    // "Submitted" = handed in and not sent back (draft/returned still need action).
+    if (s.status !== "draft" && s.status !== "returned") {
+      const set = submittedByMonth.get(k) ?? new Set<string>();
+      set.add(s.supplier_member_id);
+      submittedByMonth.set(k, set);
+    }
+  });
+  ((openP as { year: number; month: number }[]) ?? []).forEach((p) => {
+    monthsSet.set(`${p.year}-${p.month}`, { year: p.year, month: p.month });
+  });
+  const monthStats = [...monthsSet.values()]
+    .sort((a, b) => b.year - a.year || b.month - a.month)
+    .slice(0, 6)
+    .map(({ year, month }) => {
+      const submitted = submittedByMonth.get(`${year}-${month}`)?.size ?? 0;
+      const expected = activeCount;
+      return {
+        year,
+        month,
+        submitted: Math.min(submitted, expected),
+        expected,
+        outstanding: Math.max(0, expected - submitted),
+      };
+    });
+
   return (
     <>
       <PageHeader
         title="Roster"
         description="Your people and their standing details. HR keeps this up to date — contact them to make changes."
+        action={
+          members.length > 0 ? (
+            <div className="text-sm text-ink-500">
+              <span className="font-semibold text-ink-900 tnum">{members.length}</span>{" "}
+              {members.length === 1 ? "person" : "people"}
+              {activeCount < members.length && (
+                <>
+                  {" · "}
+                  <span className="tnum">{activeCount}</span> active
+                </>
+              )}
+            </div>
+          ) : undefined
+        }
       />
+
+      {monthStats.length > 0 && activeCount > 0 && (
+        <Card className="mb-6">
+          <CardHeader
+            title="Time submissions by month"
+            description="How many of your active people have submitted, and how many are still outstanding."
+          />
+          <CardBody className="space-y-4">
+            {monthStats.map((s) => {
+              const pct = s.expected ? Math.round((s.submitted / s.expected) * 100) : 0;
+              return (
+                <div key={`${s.year}-${s.month}`}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-ink-900">
+                      {periodLabel(s.year, s.month)}
+                    </span>
+                    <span className="text-ink-600 tnum">
+                      {s.submitted} of {s.expected} submitted
+                      {s.outstanding > 0 && (
+                        <span className="font-medium text-gold-700">
+                          {" · "}
+                          {s.outstanding} outstanding
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                    <div
+                      className="h-full rounded-full bg-brand-600"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardBody>
+        </Card>
+      )}
 
       {members.length === 0 ? (
         <Card>
