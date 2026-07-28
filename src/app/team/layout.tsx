@@ -11,13 +11,21 @@ export default async function TeamLayout({
   const { profile } = await requireRole("team_member");
   const supabase = createClient();
   const [{ data: tm }, unread] = await Promise.all([
-    supabase.from("team_members").select("name").eq("profile_id", profile.id).maybeSingle(),
+    supabase
+      .from("team_members")
+      .select("name, member_type")
+      .eq("profile_id", profile.id)
+      .maybeSingle(),
     myUnread(),
   ]);
+
+  const isSupplier = tm?.member_type === "supplier";
 
   const nav: NavItem[] = [
     { href: "/team", label: "Overview", exact: true },
     { href: "/team/invoices", label: "My Invoices" },
+    // Supplier leaders get a standing reference of their roster.
+    ...(isSupplier ? [{ href: "/team/roster", label: "Roster" }] : []),
     { href: "/messages", label: "Messages", badge: unread },
     { href: "/team/profile", label: "Profile" },
   ];
