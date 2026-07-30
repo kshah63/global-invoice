@@ -183,7 +183,11 @@ export function InvoiceEditor({
     ]);
   }
 
-  function addAdjustmentRow() {
+  // An "other charge" is an ad-hoc line with its own description and amount, on
+  // top of the configured rates (e.g. materials, reimbursement). It defaults to
+  // a positive charge; a deduction is still available for corrections. Stored
+  // as an adjustment line under the hood.
+  function addOtherChargeRow() {
     setRows((prev) => [
       ...prev,
       {
@@ -197,7 +201,7 @@ export function InvoiceEditor({
         rate_descriptor: "",
         rate_unit: "fixed",
         rate_amount: 0,
-        direction: "subtract",
+        direction: "add",
       },
     ]);
   }
@@ -250,7 +254,7 @@ export function InvoiceEditor({
         r.task === ADJUSTMENT_TASK && (!r.note.trim() || !(Number(r.rate_amount) > 0))
     );
     if (badAdj) {
-      setError("Every adjustment needs a description and an amount greater than zero.");
+      setError("Every other charge needs a description and an amount greater than zero.");
       return false;
     }
     // Clamp to [0, 100] and round to the DB's numeric(6,3) precision so the
@@ -352,14 +356,14 @@ export function InvoiceEditor({
       <Card>
         <CardHeader
           title="Line items"
-          description="Centre × task × rate. Pick a rate from your configured rates; totals follow the rate's unit."
+          description="Pick a rate from your configured rates; totals follow the rate's unit. Use “Other charge” for anything extra (with its own description)."
           action={
             <div className="flex gap-2">
               <Button variant="brand-soft" size="sm" onClick={addRow} type="button">
                 + Add line
               </Button>
-              <Button variant="neutral" size="sm" onClick={addAdjustmentRow} type="button">
-                + Adjustment
+              <Button variant="neutral" size="sm" onClick={addOtherChargeRow} type="button">
+                + Other charge
               </Button>
             </div>
           }
@@ -382,7 +386,7 @@ export function InvoiceEditor({
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-ink-400">
-                    {isAdjustment ? `Adjustment ${i + 1}` : `Line ${i + 1}`}
+                    {isAdjustment ? `Other charge ${i + 1}` : `Line ${i + 1}`}
                   </span>
                   <button
                     type="button"
@@ -399,7 +403,7 @@ export function InvoiceEditor({
                       <Input
                         value={row.note}
                         onChange={(e) => patchRow(row.key, { note: e.target.value })}
-                        placeholder="Unpaid day off"
+                        placeholder="e.g. Materials, reimbursement"
                       />
                     </Field>
                     <div className="grid grid-cols-2 gap-3">
@@ -410,8 +414,8 @@ export function InvoiceEditor({
                             patchRow(row.key, { direction: e.target.value as Direction })
                           }
                         >
-                          <option value="subtract">Subtraction (−)</option>
-                          <option value="add">Addition (+)</option>
+                          <option value="add">Charge (+)</option>
+                          <option value="subtract">Deduction (−)</option>
                         </Select>
                       </Field>
                       <Field label={`Amount (${currency})`} hint="A positive number.">
