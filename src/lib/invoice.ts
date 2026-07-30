@@ -73,15 +73,15 @@ export function computeInvoiceTotals(
 // --- Invoice state machine -----------------------------------------------
 
 /** Statuses in which a team member may still edit line items / details. */
-export const TEAM_MEMBER_EDITABLE: InvoiceStatus[] = [
-  "draft",
-  "submitted",
-  "approved",
-];
+export const TEAM_MEMBER_EDITABLE: InvoiceStatus[] = ["draft", "submitted"];
 
-/** Fully locked — no edits by anyone (HR still controls status transitions). */
+/**
+ * Frozen — no edits by the team member. Approval is the terminal review state:
+ * once approved the invoice is final and ready to pay (HR uses "Reopen" if a
+ * correction is needed). "locked" is retained only for legacy invoices.
+ */
 export function isContentLocked(status: InvoiceStatus): boolean {
-  return status === "locked" || status === "paid";
+  return status === "approved" || status === "locked" || status === "paid";
 }
 
 export function canTeamMemberEdit(status: InvoiceStatus): boolean {
@@ -126,18 +126,21 @@ export function hrActionsFor(status: InvoiceStatus): HrActionDef[] {
         },
       ];
     case "approved":
-      return [
-        { action: "lock", label: "Lock invoice", to: "locked", tone: "primary" },
-        { action: "reopen", label: "Reopen", to: "submitted", tone: "neutral" },
-      ];
-    case "locked":
+      // Approval is the final review state. Pay directly from here, or reopen
+      // for edits if something needs correcting.
       return [
         { action: "mark_paid", label: "Mark as paid", to: "paid", tone: "primary" },
-        { action: "reopen", label: "Unlock", to: "approved", tone: "neutral" },
+        { action: "reopen", label: "Reopen for edits", to: "submitted", tone: "neutral" },
+      ];
+    case "locked":
+      // Legacy state (the lock step was removed). Keep it movable.
+      return [
+        { action: "mark_paid", label: "Mark as paid", to: "paid", tone: "primary" },
+        { action: "reopen", label: "Reopen for edits", to: "submitted", tone: "neutral" },
       ];
     case "paid":
       return [
-        { action: "revert_paid", label: "Revert to locked", to: "locked", tone: "neutral" },
+        { action: "revert_paid", label: "Revert to approved", to: "approved", tone: "neutral" },
       ];
     case "draft":
     default:

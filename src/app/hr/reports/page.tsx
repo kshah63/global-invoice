@@ -90,7 +90,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader
           title="Team members"
-          description="Finalised = approved, locked or paid. Only these are counted in the payable totals."
+          description="Finalised = approved or paid. Only these are counted in the payable totals."
         />
         <CardBody className="p-0">
           {rows.length === 0 ? (

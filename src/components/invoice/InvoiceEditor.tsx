@@ -638,7 +638,7 @@ export function InvoiceEditor({
           Download / Print
         </Button>
         <span className="ml-auto text-xs text-ink-400">
-          Editing is possible until HR locks the invoice.
+          Editing is possible until HR approves the invoice.
         </span>
       </div>
     </div>

@@ -25,7 +25,6 @@ const CARD_ORDER: DashboardStatus[] = [
   "draft",
   "submitted",
   "approved",
-  "locked",
   "paid",
 ];
 
@@ -81,6 +80,10 @@ export default async function HrDashboard({
     paid: 0,
   };
   rows.forEach((r) => (counts[r.status] += 1));
+  // The "lock" step was removed; fold any legacy locked invoices into approved
+  // so the summary still adds up and no stage is missing.
+  counts.approved += counts.locked;
+  counts.locked = 0;
 
   const openPeriod = period as InvoicePeriod | null;
 
@@ -114,7 +117,7 @@ export default async function HrDashboard({
       </div>
 
       {/* Status summary */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {CARD_ORDER.map((s) => (
           <div key={s} className="card px-4 py-3">
             <div className="text-2xl font-semibold tnum text-ink-900">{counts[s]}</div>

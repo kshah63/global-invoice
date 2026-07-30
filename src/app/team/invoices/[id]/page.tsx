@@ -235,7 +235,9 @@ export default async function TeamInvoiceDetail({
       <Alert tone={invoice.status === "paid" ? "success" : "info"} className="mb-5">
         {invoice.status === "paid"
           ? "This invoice has been paid."
-          : "This invoice is locked by HR and can no longer be edited."}
+          : invoice.status === "approved"
+            ? "This invoice has been approved and is now final. Contact HR if something needs changing."
+            : "This invoice is locked by HR and can no longer be edited."}
       </Alert>
       <div className="mb-4 flex justify-end">
         <Button href={`/print/invoice/${invoice.id}`} variant="neutral" size="sm">

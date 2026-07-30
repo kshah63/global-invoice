@@ -180,8 +180,8 @@ export default async function HrInvoiceDetail({
                   variant={TONE_TO_VARIANT[a.tone]}
                   size="sm"
                   confirm={
-                    a.action === "lock"
-                      ? "Lock this invoice? The team member will no longer be able to edit it."
+                    a.action === "approve"
+                      ? "Approve this invoice? It becomes final and the team member can no longer edit it. You can Reopen it if a change is needed."
                       : a.action === "mark_paid"
                         ? "Mark this invoice as paid?"
                         : undefined
