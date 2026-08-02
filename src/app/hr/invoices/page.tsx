@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/AppShell";
 import { PeriodNav } from "@/components/hr/PeriodNav";
 import { Flash } from "@/components/Flash";
 import { InvoiceList, type InvoiceRow } from "@/components/hr/InvoiceList";
-import { periodLabel } from "@/lib/constants";
 import type { Invoice } from "@/lib/types";
 
 export const metadata = { title: "Invoices" };
@@ -22,12 +21,13 @@ export default async function HrInvoicesPage({
   const month = Number(searchParams.month) || now.getMonth() + 1;
 
   const supabase = createClient();
+  // Fetch every period so the "All periods" scope can search across months;
+  // the default view still filters to the selected period client-side.
   const { data } = await supabase
     .from("invoices")
     .select("*, team_members(name, employee_id)")
-    .eq("period_year", year)
-    .eq("period_month", month)
-    .order("status")
+    .order("period_year", { ascending: false })
+    .order("period_month", { ascending: false })
     .order("created_at");
   const rows = (data as Row[]) ?? [];
 
@@ -39,20 +39,19 @@ export default async function HrInvoicesPage({
     status: inv.status,
     total: inv.total,
     currency: inv.currency,
+    year: inv.period_year,
+    month: inv.period_month,
   }));
 
   return (
     <>
       <Flash ok={searchParams.ok} error={searchParams.error} />
-      <PageHeader
-        title="Invoices"
-        description={`Submitted invoices for ${periodLabel(year, month)}.`}
-      />
+      <PageHeader title="Invoices" description="Review submitted invoices." />
       <div className="mb-6">
         <PeriodNav basePath="/hr/invoices" year={year} month={month} />
       </div>
 
-      <InvoiceList rows={invoiceRows} />
+      <InvoiceList rows={invoiceRows} selectedYear={year} selectedMonth={month} />
     </>
   );
 }

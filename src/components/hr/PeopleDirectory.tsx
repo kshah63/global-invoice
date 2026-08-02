@@ -78,6 +78,7 @@ function RowActions({ href, member }: { href: string; member: TeamMember }) {
 }
 
 type StatusFilter = "all" | "active" | "inactive";
+type PeopleSort = "name" | "name_desc" | "status";
 
 function matches(q: string, ...fields: (string | null | undefined)[]) {
   if (!q) return true;
@@ -96,33 +97,54 @@ export function PeopleDirectory({
 }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<PeopleSort>("name");
 
   const passStatus = (active: boolean) =>
     status === "all" || (status === "active" ? active : !active);
 
+  function cmpMembers<T extends { member: TeamMember }>(a: T, b: T) {
+    if (sort === "status") {
+      return (
+        Number(b.member.active) - Number(a.member.active) ||
+        a.member.name.localeCompare(b.member.name)
+      );
+    }
+    return sort === "name_desc"
+      ? b.member.name.localeCompare(a.member.name)
+      : a.member.name.localeCompare(b.member.name);
+  }
+
   const filteredIndividuals = useMemo(
     () =>
-      individuals.filter(
-        (e) =>
-          passStatus(e.member.active) &&
-          matches(q, e.member.name, e.member.email, e.member.employee_id)
-      ),
-    [individuals, q, status]
+      individuals
+        .filter(
+          (e) =>
+            passStatus(e.member.active) &&
+            matches(q, e.member.name, e.member.email, e.member.employee_id)
+        )
+        .sort(cmpMembers),
+    [individuals, q, status, sort]
   );
   const filteredSuppliers = useMemo(
     () =>
-      suppliers.filter(
-        (e) =>
-          passStatus(e.member.active) &&
-          matches(q, e.member.name, e.member.email, e.member.supplier_code)
-      ),
-    [suppliers, q, status]
+      suppliers
+        .filter(
+          (e) =>
+            passStatus(e.member.active) &&
+            matches(q, e.member.name, e.member.email, e.member.supplier_code)
+        )
+        .sort(cmpMembers),
+    [suppliers, q, status, sort]
   );
-  const filteredHeads = useMemo(
-    () =>
-      deptHeads.filter((h) => matches(q, h.full_name, h.email, h.login_code)),
-    [deptHeads, q]
-  );
+  const filteredHeads = useMemo(() => {
+    const out = deptHeads.filter((h) => matches(q, h.full_name, h.email, h.login_code));
+    out.sort((a, b) => {
+      const an = a.full_name ?? a.email ?? "";
+      const bn = b.full_name ?? b.email ?? "";
+      return sort === "name_desc" ? bn.localeCompare(an) : an.localeCompare(bn);
+    });
+    return out;
+  }, [deptHeads, q, sort]);
 
   const clear = q || status !== "all";
 
@@ -152,6 +174,16 @@ export function PeopleDirectory({
             <option value="all">All statuses</option>
             <option value="active">Active only</option>
             <option value="inactive">Inactive only</option>
+          </Select>
+          <Select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as PeopleSort)}
+            className="w-44"
+            aria-label="Sort people"
+          >
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="name_desc">Sort: Name (Z–A)</option>
+            <option value="status">Sort: Active first</option>
           </Select>
           {clear && (
             <Button
