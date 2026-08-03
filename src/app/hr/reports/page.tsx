@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/AppShell";
 import { PeriodNav } from "@/components/hr/PeriodNav";
 import { PrintButton } from "@/components/PrintButton";
 import { ReportTable, type ReportRow } from "@/components/hr/ReportTable";
-import { formatCurrency } from "@/lib/format";
+import { FxSummary } from "@/components/hr/FxSummary";
 import {
   periodLabel,
   TASK_LABELS,
@@ -15,8 +15,6 @@ import {
 import type { Invoice, TeamMember } from "@/lib/types";
 
 export const metadata = { title: "Reports" };
-
-const FINALISED = ["approved", "locked", "paid"];
 
 type LineRow = {
   invoice_id: string;
@@ -41,13 +39,18 @@ export default async function ReportsPage({
   const month = Number(searchParams.month) || now.getMonth() + 1;
 
   const supabase = createClient();
-  const [{ data: memberRows }, { data: invRows }] = await Promise.all([
+  const [{ data: memberRows }, { data: invRows }, { data: fxRows }] = await Promise.all([
     supabase
       .from("team_members")
       .select("id, name, employee_id, supplier_code, member_type, currency")
       .eq("active", true)
       .order("name"),
     supabase.from("invoices").select("*").eq("period_year", year).eq("period_month", month),
+    supabase
+      .from("report_fx_rates")
+      .select("currency, units_per_sgd")
+      .eq("year", year)
+      .eq("month", month),
   ]);
 
   const membersRaw =
@@ -64,13 +67,26 @@ export default async function ReportsPage({
   const invByMember = new Map<string, Invoice>();
   (invRows as Invoice[] | null)?.forEach((i) => invByMember.set(i.team_member_id, i));
 
-  // Per-currency payable totals (finalised invoices only).
-  const totals = new Map<Currency, number>();
+  // Per-currency totals across the period's invoices, and the set of currencies
+  // in use (so every currency — including INR — gets a widget even at 0).
+  const curTotals = new Map<Currency, number>();
+  const inUse = new Set<Currency>();
   members.forEach((m) => {
+    inUse.add(m.currency as Currency);
     const inv = invByMember.get(m.id);
-    if (inv && FINALISED.includes(inv.status)) {
-      totals.set(inv.currency, (totals.get(inv.currency) ?? 0) + Number(inv.total));
+    if (inv) {
+      inUse.add(inv.currency);
+      curTotals.set(inv.currency, (curTotals.get(inv.currency) ?? 0) + Number(inv.total));
     }
+  });
+  const curOrder = (c: Currency) => (c === "SGD" ? 0 : c === "INR" ? 1 : 2);
+  const fxEntries = [...inUse]
+    .map((c) => ({ currency: c, total: curTotals.get(c) ?? 0 }))
+    .sort((a, b) => curOrder(a.currency) - curOrder(b.currency) || a.currency.localeCompare(b.currency));
+
+  const initialRates: Partial<Record<Currency, number>> = {};
+  ((fxRows as { currency: Currency; units_per_sgd: number }[]) ?? []).forEach((r) => {
+    initialRates[r.currency] = Number(r.units_per_sgd);
   });
 
   // Line items for supplier invoices — powers the inline expandable detail.
@@ -159,19 +175,13 @@ export default async function ReportsPage({
       </div>
 
       <div className="print-area">
-        {totals.size > 0 && (
-          <div className="mb-6 grid gap-3 sm:grid-cols-3">
-            {Array.from(totals.entries()).map(([cur, total]) => (
-              <div key={cur} className="card px-5 py-4">
-                <div className="text-xs uppercase tracking-wider text-ink-400">
-                  Payable · {cur}
-                </div>
-                <div className="mt-1 text-2xl font-semibold tnum text-ink-900">
-                  {formatCurrency(total, cur)}
-                </div>
-              </div>
-            ))}
-          </div>
+        {fxEntries.length > 0 && (
+          <FxSummary
+            year={year}
+            month={month}
+            entries={fxEntries}
+            initialRates={initialRates}
+          />
         )}
 
         <ReportTable rows={reportRows} />
