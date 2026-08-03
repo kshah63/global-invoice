@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { canTeamMemberEdit } from "@/lib/invoice";
-import { periodLabel, type Currency, type RateUnit, type TaskType } from "@/lib/constants";
+import { periodLabel, TASK_LABELS, type Currency, type RateUnit, type TaskType } from "@/lib/constants";
 import { Flash } from "@/components/Flash";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/Badge";
@@ -82,7 +82,9 @@ export default async function TeamInvoiceDetail({
         .order("sort_order"),
       supabase
         .from("supplier_member_invoices")
-        .select("*, member:supplier_members(name)")
+        .select(
+          "*, member:supplier_members(name), items:supplier_member_invoice_items(id, task, rate_descriptor, sessions, hours, line_total, sort_order)"
+        )
         .eq("supplier_id", invoice.team_member_id)
         .eq("period_year", invoice.period_year)
         .eq("period_month", invoice.period_month),
@@ -140,8 +142,20 @@ export default async function TeamInvoiceDetail({
       }
       return { id: m.id, name: m.name, rates: rateList };
     });
+    type SubItem = {
+      id: string;
+      task: TaskType;
+      rate_descriptor: string | null;
+      sessions: number;
+      hours: number;
+      line_total: number;
+      sort_order: number;
+    };
     const subList =
-      (subRows as (SupplierMemberInvoice & { member: { name: string } | null })[]) ?? [];
+      (subRows as (SupplierMemberInvoice & {
+        member: { name: string } | null;
+        items: SubItem[];
+      })[]) ?? [];
     submissions = subList
       .map((s) => ({
         id: s.id,
@@ -150,6 +164,15 @@ export default async function TeamInvoiceDetail({
         total: Number(s.total),
         currency: s.currency as Currency,
         returnNote: s.return_note,
+        items: [...(s.items ?? [])]
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((it) => ({
+            id: it.id,
+            label: it.rate_descriptor || TASK_LABELS[it.task] || String(it.task),
+            sessions: Number(it.sessions),
+            hours: Number(it.hours),
+            total: Number(it.line_total),
+          })),
       }))
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
 

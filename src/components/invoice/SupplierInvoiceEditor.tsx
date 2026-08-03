@@ -441,7 +441,7 @@ export function SupplierInvoiceEditor({
     setBusy(null);
   }
   async function onSubmit() {
-    if (rows.length === 0) {
+    if (rows.length === 0 && submissionCount === 0) {
       setError("Add at least one line item before submitting.");
       return;
     }
@@ -453,6 +453,16 @@ export function SupplierInvoiceEditor({
     }
     setBusy("submit");
     if (await doSave()) {
+      // Always pull in any outstanding member submissions before submitting so
+      // their pay is never left off the invoice (submitting locks them).
+      if (submissionCount > 0) {
+        const pull = await pullMemberInvoices(invoice.id);
+        if (pull.error) {
+          setError(pull.error);
+          setBusy(null);
+          return;
+        }
+      }
       const res = await submitInvoiceById(invoice.id);
       if (res.error) setError(res.error);
       else {

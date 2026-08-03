@@ -7,8 +7,16 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Feedback";
 import { MemberStatusBadge } from "@/components/MemberStatusBadge";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatNumber } from "@/lib/format";
 import type { Currency, MemberInvoiceStatus } from "@/lib/constants";
+
+export interface MemberSubEntry {
+  id: string;
+  label: string;
+  sessions: number;
+  hours: number;
+  total: number;
+}
 
 export interface MemberSubmissionRow {
   id: string;
@@ -17,12 +25,14 @@ export interface MemberSubmissionRow {
   total: number;
   currency: Currency;
   returnNote: string | null;
+  items: MemberSubEntry[];
 }
 
 function SubmissionRow({ s }: { s: MemberSubmissionRow }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   async function sendBack() {
     const note = window.prompt("What should this member fix? (optional note)") ?? "";
@@ -46,7 +56,15 @@ function SubmissionRow({ s }: { s: MemberSubmissionRow }) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="rounded-lg px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+            aria-expanded={open}
+          >
+            {open ? "Hide entries" : "View entries"}
+          </button>
           <span className="tnum text-sm font-medium">
             {formatCurrency(s.total, s.currency)}
           </span>
@@ -63,6 +81,42 @@ function SubmissionRow({ s }: { s: MemberSubmissionRow }) {
           )}
         </div>
       </div>
+
+      {open && (
+        <div className="mt-3 overflow-x-auto rounded-lg border border-ink-100 bg-ink-50/40">
+          {s.items.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-ink-400">No line items recorded.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink-200 text-left text-xs uppercase tracking-wider text-ink-500">
+                  <th className="px-3 py-2 font-semibold">Entry</th>
+                  <th className="px-3 py-2 text-right font-semibold">Sessions</th>
+                  <th className="px-3 py-2 text-right font-semibold">Hours</th>
+                  <th className="px-3 py-2 text-right font-semibold">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-100">
+                {s.items.map((it) => (
+                  <tr key={it.id}>
+                    <td className="px-3 py-2">{it.label}</td>
+                    <td className="px-3 py-2 text-right tnum">
+                      {it.sessions ? formatNumber(it.sessions) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tnum">
+                      {it.hours ? formatNumber(it.hours) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tnum">
+                      {formatCurrency(it.total, s.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {error && <Alert tone="danger" className="mt-2">{error}</Alert>}
     </div>
   );

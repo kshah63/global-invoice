@@ -14,6 +14,13 @@ export const metadata = { title: "Reports" };
 
 const FINALISED = ["approved", "locked", "paid"];
 
+type LineRow = {
+  invoice_id: string;
+  supplier_member_id: string | null;
+  worked_by_name: string | null;
+  line_total: number;
+};
+
 export default async function ReportsPage({
   searchParams,
 }: {
@@ -54,6 +61,33 @@ export default async function ReportsPage({
     if (invoice && FINALISED.includes(invoice.status)) {
       totals.set(invoice.currency, (totals.get(invoice.currency) ?? 0) + Number(invoice.total));
     }
+  });
+
+  // Per-roster-member breakdown for supplier invoices: sum each person's lines,
+  // and pool expenses/adjustments (lines with no person) separately.
+  const supplierRows = rows.filter((r) => r.member.member_type === "supplier" && r.invoice);
+  const supInvoiceIds = supplierRows.map((r) => r.invoice!.id);
+  const { data: liRows } = supInvoiceIds.length
+    ? await supabase
+        .from("invoice_line_items")
+        .select("invoice_id, supplier_member_id, worked_by_name, line_total")
+        .in("invoice_id", supInvoiceIds)
+    : { data: [] as LineRow[] };
+  type Breakdown = { people: Map<string, { name: string; total: number }>; other: number };
+  const breakdownByInvoice = new Map<string, Breakdown>();
+  ((liRows as LineRow[]) ?? []).forEach((li) => {
+    const g = breakdownByInvoice.get(li.invoice_id) ?? { people: new Map(), other: 0 };
+    if (li.supplier_member_id) {
+      const cur = g.people.get(li.supplier_member_id) ?? {
+        name: li.worked_by_name ?? "Member",
+        total: 0,
+      };
+      cur.total += Number(li.line_total);
+      g.people.set(li.supplier_member_id, cur);
+    } else {
+      g.other += Number(li.line_total);
+    }
+    breakdownByInvoice.set(li.invoice_id, g);
   });
 
   return (
@@ -142,6 +176,74 @@ export default async function ReportsPage({
           )}
         </CardBody>
       </Card>
+
+      {supplierRows.length > 0 && (
+        <Card className="mt-8">
+          <CardHeader
+            title="Supplier breakdown"
+            description="Each supplier invoice split by roster member, plus pooled expenses and adjustments."
+          />
+          <CardBody className="space-y-6">
+            {supplierRows.map(({ member, invoice }) => {
+              const inv = invoice!;
+              const b = breakdownByInvoice.get(inv.id) ?? {
+                people: new Map<string, { name: string; total: number }>(),
+                other: 0,
+              };
+              const people = [...b.people.values()].sort((a, c) =>
+                a.name.localeCompare(c.name)
+              );
+              return (
+                <div key={inv.id}>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="font-medium text-ink-900">{member.name}</div>
+                    <div className="flex items-center gap-3">
+                      <StatusPill status={inv.status} />
+                      <span className="tnum font-semibold text-ink-900">
+                        {formatCurrency(inv.total, inv.currency)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-ink-100">
+                    <table className="w-full text-sm">
+                      <tbody className="divide-y divide-ink-100">
+                        {people.length === 0 && b.other === 0 ? (
+                          <tr>
+                            <td className="px-4 py-2 text-ink-400">
+                              No roster lines on this invoice yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          <>
+                            {people.map((p) => (
+                              <tr key={p.name}>
+                                <td className="px-4 py-2 text-ink-700">{p.name}</td>
+                                <td className="px-4 py-2 text-right tnum">
+                                  {formatCurrency(p.total, inv.currency)}
+                                </td>
+                              </tr>
+                            ))}
+                            {b.other !== 0 && (
+                              <tr>
+                                <td className="px-4 py-2 text-ink-500">
+                                  Expenses &amp; adjustments
+                                </td>
+                                <td className="px-4 py-2 text-right tnum">
+                                  {formatCurrency(b.other, inv.currency)}
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </CardBody>
+        </Card>
+      )}
     </>
   );
 }
