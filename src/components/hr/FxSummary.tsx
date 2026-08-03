@@ -98,14 +98,14 @@ export function FxSummary({
           </div>
           <div className="flex flex-wrap items-end gap-4">
             {nonSgd.map((e) => (
-              <div key={e.currency} className="flex items-center gap-2">
-                <span className="text-sm text-ink-600">1 SGD =</span>
+              <div key={e.currency} className="flex shrink-0 items-center gap-2">
+                <span className="whitespace-nowrap text-sm text-ink-600">1&nbsp;SGD&nbsp;=</span>
                 <Input
                   type="number"
                   min="0"
                   step="0.0001"
                   inputMode="decimal"
-                  className="w-28 text-right"
+                  className="w-28 shrink-0 text-right"
                   value={rates[e.currency] ?? ""}
                   onChange={(ev) => {
                     setSaved(false);
