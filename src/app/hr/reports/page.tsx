@@ -97,7 +97,7 @@ export default async function ReportsPage({
         description={`All active team members for ${periodLabel(year, month)}.`}
         action={
           <Button href={`/hr/reports/export?year=${year}&month=${month}`}>
-            Export CSV
+            Export Excel
           </Button>
         }
       />

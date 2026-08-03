@@ -1,12 +1,50 @@
 import { type NextRequest } from "next/server";
+import ExcelJS from "exceljs";
 import { getSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { STATUS_META, periodLabel, type DashboardStatus } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+const MONEY_FMT = "#,##0.00";
+const BRAND = "FF2E3192"; // indigo
+const HEADER_TEXT = "FFFFFFFF";
+
+type MemberRow = {
+  id: string;
+  name: string;
+  employee_id: string | null;
+  supplier_code: string | null;
+  member_type: string;
+  currency: string;
+  payment_details: string | null;
+};
+type InvoiceRow = {
+  id: string;
+  team_member_id: string;
+  invoice_number: string;
+  status: DashboardStatus;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+};
+type LineRow = {
+  invoice_id: string;
+  supplier_member_id: string | null;
+  worked_by_name: string | null;
+  line_total: number;
+};
+
+function styleHeader(row: ExcelJS.Row) {
+  row.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: HEADER_TEXT } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
+    cell.alignment = { vertical: "middle" };
+  });
+  row.height = 20;
 }
 
 export async function GET(req: NextRequest) {
@@ -21,8 +59,6 @@ export async function GET(req: NextRequest) {
   const month = Number(url.searchParams.get("month")) || now.getMonth() + 1;
 
   const supabase = createClient();
-  // Drive from all active team members so the payroll report covers everyone,
-  // not just those who already have an invoice for the period.
   const [{ data: memberRows }, { data: invRows }] = await Promise.all([
     supabase
       .from("team_members")
@@ -31,54 +67,188 @@ export async function GET(req: NextRequest) {
       .order("name"),
     supabase
       .from("invoices")
-      .select("*")
+      .select("id, team_member_id, invoice_number, status, currency, subtotal, tax_rate, tax_amount, total")
       .eq("period_year", year)
       .eq("period_month", month),
   ]);
 
-  const members = (memberRows as any[]) ?? [];
-  const invByMember = new Map<string, any>();
-  ((invRows as any[]) ?? []).forEach((i) => invByMember.set(i.team_member_id, i));
+  const members = (memberRows as MemberRow[]) ?? [];
+  const invByMember = new Map<string, InvoiceRow>();
+  ((invRows as InvoiceRow[]) ?? []).forEach((i) => invByMember.set(i.team_member_id, i));
 
-  const header = [
+  // Per-member breakdown for supplier invoices.
+  const supplierInvoiceIds = members
+    .filter((m) => m.member_type === "supplier" && invByMember.get(m.id))
+    .map((m) => invByMember.get(m.id)!.id);
+  const { data: liRows } = supplierInvoiceIds.length
+    ? await supabase
+        .from("invoice_line_items")
+        .select("invoice_id, supplier_member_id, worked_by_name, line_total")
+        .in("invoice_id", supplierInvoiceIds)
+    : { data: [] as LineRow[] };
+  const breakdown = new Map<string, { people: Map<string, { name: string; total: number }>; other: number }>();
+  ((liRows as LineRow[]) ?? []).forEach((li) => {
+    const g = breakdown.get(li.invoice_id) ?? { people: new Map(), other: 0 };
+    if (li.supplier_member_id) {
+      const cur = g.people.get(li.supplier_member_id) ?? { name: li.worked_by_name ?? "Member", total: 0 };
+      cur.total += Number(li.line_total);
+      g.people.set(li.supplier_member_id, cur);
+    } else {
+      g.other += Number(li.line_total);
+    }
+    breakdown.set(li.invoice_id, g);
+  });
+
+  // Per-currency payable totals (finalised invoices only).
+  const FINALISED = new Set(["approved", "locked", "paid"]);
+  const payable = new Map<string, number>();
+  members.forEach((m) => {
+    const inv = invByMember.get(m.id);
+    if (inv && FINALISED.has(inv.status)) {
+      payable.set(inv.currency, (payable.get(inv.currency) ?? 0) + Number(inv.total));
+    }
+  });
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "MathVision Invoicing";
+  wb.created = now;
+
+  // ---- Sheet 1: Payroll ---------------------------------------------------
+  const ws = wb.addWorksheet("Payroll", {
+    views: [{ state: "frozen", ySplit: 4 }],
+  });
+  ws.columns = [
+    { key: "id", width: 12 },
+    { key: "type", width: 11 },
+    { key: "name", width: 28 },
+    { key: "invoice", width: 16 },
+    { key: "status", width: 14 },
+    { key: "currency", width: 9 },
+    { key: "subtotal", width: 13 },
+    { key: "taxrate", width: 8 },
+    { key: "tax", width: 12 },
+    { key: "total", width: 14 },
+    { key: "payment", width: 42 },
+  ];
+
+  const title = ws.getCell("A1");
+  title.value = `Payroll — ${periodLabel(year, month)}`;
+  title.font = { bold: true, size: 15, color: { argb: BRAND } };
+  ws.mergeCells("A1:E1");
+
+  const payableStr =
+    payable.size > 0
+      ? [...payable.entries()]
+          .map(([cur, tot]) => `${cur} ${tot.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
+          .join("   ·   ")
+      : "None finalised yet";
+  const sub = ws.getCell("A2");
+  sub.value = `Payable (finalised): ${payableStr}`;
+  sub.font = { color: { argb: "FF6B7A8E" } };
+  ws.mergeCells("A2:K2");
+
+  const header = ws.getRow(4);
+  header.values = [
     "ID",
     "Type",
     "Name",
-    "Invoice Number",
+    "Invoice #",
     "Status",
     "Currency",
     "Subtotal",
-    "Tax Rate %",
-    "Tax Amount",
+    "Tax %",
+    "Tax",
     "Total",
-    "Payment Details",
+    "Payment details",
   ];
-  const body = members.map((m) => {
+  styleHeader(header);
+
+  members.forEach((m) => {
     const inv = invByMember.get(m.id);
-    return [
-      m.employee_id ?? m.supplier_code ?? "",
-      m.member_type === "supplier" ? "Supplier" : "Individual",
-      m.name,
-      inv?.invoice_number ?? "",
-      inv?.status ?? "not_started",
-      inv?.currency ?? m.currency,
-      inv?.subtotal ?? "",
-      inv?.tax_rate ?? "",
-      inv?.tax_amount ?? "",
-      inv?.total ?? "",
-      m.payment_details ?? "",
-    ];
+    const status = (inv?.status ?? "not_started") as DashboardStatus;
+    const row = ws.addRow({
+      id: m.employee_id ?? m.supplier_code ?? "",
+      type: m.member_type === "supplier" ? "Supplier" : "Individual",
+      name: m.name,
+      invoice: inv?.invoice_number ?? "",
+      status: STATUS_META[status]?.label ?? status,
+      currency: inv?.currency ?? m.currency,
+      subtotal: inv ? Number(inv.subtotal) : null,
+      taxrate: inv ? Number(inv.tax_rate) : null,
+      tax: inv ? Number(inv.tax_amount) : null,
+      total: inv ? Number(inv.total) : null,
+      payment: m.payment_details ?? "",
+    });
+    ["subtotal", "tax", "total"].forEach((k) => (row.getCell(k).numFmt = MONEY_FMT));
+    row.getCell("taxrate").numFmt = '0.###"%"';
+    row.getCell("total").font = { bold: true };
+    row.getCell("payment").alignment = { wrapText: true, vertical: "top" };
   });
+  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: 11 } };
 
-  const csv = [header, ...body]
-    .map((row) => row.map(csvCell).join(","))
-    .join("\r\n");
+  // ---- Sheet 2: Supplier breakdown ---------------------------------------
+  const suppliers = members.filter((m) => m.member_type === "supplier" && invByMember.get(m.id));
+  if (suppliers.length > 0) {
+    const bs = wb.addWorksheet("Supplier breakdown", {
+      views: [{ state: "frozen", ySplit: 3 }],
+    });
+    bs.columns = [
+      { key: "supplier", width: 24 },
+      { key: "member", width: 28 },
+      { key: "amount", width: 14 },
+      { key: "currency", width: 9 },
+    ];
+    const bt = bs.getCell("A1");
+    bt.value = `Supplier breakdown — ${periodLabel(year, month)}`;
+    bt.font = { bold: true, size: 15, color: { argb: BRAND } };
+    bs.mergeCells("A1:D1");
 
-  const filename = `payroll-${year}-${String(month).padStart(2, "0")}.csv`;
-  return new Response(csv, {
+    const bh = bs.getRow(3);
+    bh.values = ["Supplier", "Roster member", "Amount", "Currency"];
+    styleHeader(bh);
+
+    suppliers.forEach((m) => {
+      const inv = invByMember.get(m.id)!;
+      const b = breakdown.get(inv.id) ?? { people: new Map<string, { name: string; total: number }>(), other: 0 };
+      const people = [...b.people.values()].sort((a, c) => a.name.localeCompare(c.name));
+      const entries: { member: string; amount: number }[] = people.map((p) => ({
+        member: p.name,
+        amount: p.total,
+      }));
+      if (b.other !== 0) entries.push({ member: "Expenses & adjustments", amount: b.other });
+      if (entries.length === 0) entries.push({ member: "(no roster lines yet)", amount: 0 });
+
+      entries.forEach((e) => {
+        const row = bs.addRow({
+          supplier: m.name,
+          member: e.member,
+          amount: e.amount,
+          currency: inv.currency,
+        });
+        row.getCell("amount").numFmt = MONEY_FMT;
+      });
+      // Supplier total row.
+      const totalRow = bs.addRow({
+        supplier: "",
+        member: `${m.name} — total`,
+        amount: Number(inv.total),
+        currency: inv.currency,
+      });
+      totalRow.getCell("member").font = { bold: true };
+      totalRow.getCell("amount").numFmt = MONEY_FMT;
+      totalRow.getCell("amount").font = { bold: true };
+      bs.addRow({}); // spacer
+    });
+    bs.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: 4 } };
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const filename = `payroll-${year}-${String(month).padStart(2, "0")}.xlsx`;
+  return new Response(buffer, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
     },
   });
 }
