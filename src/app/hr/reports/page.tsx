@@ -1,9 +1,9 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
 import { PeriodNav } from "@/components/hr/PeriodNav";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { formatCurrency } from "@/lib/format";
@@ -94,12 +94,7 @@ export default async function ReportsPage({
     <>
       <PageHeader
         title="Payroll Report"
-        description={`All active team members for ${periodLabel(year, month)}.`}
-        action={
-          <Button href={`/hr/reports/export?year=${year}&month=${month}`}>
-            Export Excel
-          </Button>
-        }
+        description={`All active team members for ${periodLabel(year, month)}. Click a name to open the invoice.`}
       />
 
       <div className="mb-6">
@@ -148,9 +143,18 @@ export default async function ReportsPage({
                   {rows.map(({ member, invoice }) => {
                     const status: DashboardStatus = invoice ? invoice.status : "not_started";
                     return (
-                      <tr key={member.id}>
+                      <tr key={member.id} className="hover:bg-ink-50">
                         <td className="px-5 py-3 font-medium text-ink-900">
-                          {member.name}
+                          {invoice ? (
+                            <Link
+                              href={`/hr/invoices/${invoice.id}`}
+                              className="hover:text-brand-700"
+                            >
+                              {member.name}
+                            </Link>
+                          ) : (
+                            member.name
+                          )}
                         </td>
                         <td className="px-5 py-3 font-mono text-xs text-ink-500">
                           {member.employee_id ?? member.supplier_code}
@@ -196,7 +200,12 @@ export default async function ReportsPage({
               return (
                 <div key={inv.id}>
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium text-ink-900">{member.name}</div>
+                    <Link
+                      href={`/hr/invoices/${inv.id}`}
+                      className="font-medium text-ink-900 hover:text-brand-700"
+                    >
+                      {member.name}
+                    </Link>
                     <div className="flex items-center gap-3">
                       <StatusPill status={inv.status} />
                       <span className="tnum font-semibold text-ink-900">
