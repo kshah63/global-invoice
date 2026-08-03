@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -35,15 +36,32 @@ export function ReportTable({ rows }: { rows: ReportRow[] }) {
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
+
+  const expandableIds = rows.filter((r) => r.isSupplier && r.lines.length > 0).map((r) => r.id);
+  const allOpen = expandableIds.length > 0 && expandableIds.every((id) => open.has(id));
 
   return (
     <Card>
       <CardHeader
         title="Team members"
         description="Finalised = approved or paid. Only these count in the payable totals. Click a supplier to see its line items."
+        action={
+          expandableIds.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="neutral"
+              className="no-print"
+              onClick={() => setOpen(allOpen ? new Set() : new Set(expandableIds))}
+            >
+              {allOpen ? "Collapse all" : "Expand all"}
+            </Button>
+          ) : undefined
+        }
       />
       <CardBody className="p-0">
         {rows.length === 0 ? (
