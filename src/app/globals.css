@@ -131,6 +131,12 @@
   .print-area .overflow-x-auto {
     overflow: visible !important;
   }
+  /* Flatten nested cards (e.g. the payroll report) so they print cleanly. */
+  .print-area .card {
+    box-shadow: none !important;
+    border: 1px solid #e5e9f0 !important;
+    break-inside: avoid;
+  }
   .print-area table {
     min-width: 0 !important;
     width: 100% !important;

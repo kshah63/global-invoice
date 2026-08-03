@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
 import { PeriodNav } from "@/components/hr/PeriodNav";
+import { PrintButton } from "@/components/PrintButton";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
@@ -95,12 +96,14 @@ export default async function ReportsPage({
       <PageHeader
         title="Payroll Report"
         description={`All active team members for ${periodLabel(year, month)}. Click a name to open the invoice.`}
+        action={<PrintButton />}
       />
 
-      <div className="mb-6">
+      <div className="mb-6 no-print">
         <PeriodNav basePath="/hr/reports" year={year} month={month} />
       </div>
 
+      <div className="print-area">
       {totals.size > 0 && (
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
           {Array.from(totals.entries()).map(([cur, total]) => (
@@ -253,6 +256,7 @@ export default async function ReportsPage({
           </CardBody>
         </Card>
       )}
+      </div>
     </>
   );
 }

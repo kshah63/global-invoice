@@ -27,7 +27,7 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 bg-white/85 shadow-[0_1px_0_rgba(22,28,37,0.04)] backdrop-blur">
+      <header className="no-print sticky top-0 z-30 bg-white/85 shadow-[0_1px_0_rgba(22,28,37,0.04)] backdrop-blur">
         <div className="app-container flex h-16 items-center justify-between gap-4">
           <Link href={home} className="rounded-lg">
             <BrandWordmark />
