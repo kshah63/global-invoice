@@ -10,6 +10,11 @@ export const runtime = "nodejs";
 const MONEY_FMT = "#,##0.00";
 const BRAND = "FF2E3192"; // indigo
 const HEADER_TEXT = "FFFFFFFF";
+const ZEBRA = "FFF4F6FB"; // very light indigo-grey
+const GRID = "FFDBE1E9"; // light border
+
+const thin = { style: "thin" as const, color: { argb: GRID } };
+const BORDER = { top: thin, left: thin, bottom: thin, right: thin };
 
 type MemberRow = {
   id: string;
@@ -38,13 +43,23 @@ type LineRow = {
   line_total: number;
 };
 
-function styleHeader(row: ExcelJS.Row) {
-  row.eachCell((cell) => {
+function styleHeader(row: ExcelJS.Row, cols: number) {
+  for (let c = 1; c <= cols; c++) {
+    const cell = row.getCell(c);
     cell.font = { bold: true, color: { argb: HEADER_TEXT } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
     cell.alignment = { vertical: "middle" };
-  });
+    cell.border = BORDER;
+  }
   row.height = 20;
+}
+
+function borderRow(row: ExcelJS.Row, cols: number, fill?: string) {
+  for (let c = 1; c <= cols; c++) {
+    const cell = row.getCell(c);
+    cell.border = BORDER;
+    if (fill) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -99,14 +114,21 @@ export async function GET(req: NextRequest) {
     breakdown.set(li.invoice_id, g);
   });
 
-  // Per-currency payable totals (finalised invoices only).
+  // Per-currency payable totals (finalised) and grand totals (all invoices).
   const FINALISED = new Set(["approved", "locked", "paid"]);
   const payable = new Map<string, number>();
+  const grand = new Map<string, { subtotal: number; tax: number; total: number }>();
   members.forEach((m) => {
     const inv = invByMember.get(m.id);
-    if (inv && FINALISED.has(inv.status)) {
+    if (!inv) return;
+    if (FINALISED.has(inv.status)) {
       payable.set(inv.currency, (payable.get(inv.currency) ?? 0) + Number(inv.total));
     }
+    const g = grand.get(inv.currency) ?? { subtotal: 0, tax: 0, total: 0 };
+    g.subtotal += Number(inv.subtotal);
+    g.tax += Number(inv.tax_amount);
+    g.total += Number(inv.total);
+    grand.set(inv.currency, g);
   });
 
   const wb = new ExcelJS.Workbook();
@@ -114,9 +136,8 @@ export async function GET(req: NextRequest) {
   wb.created = now;
 
   // ---- Sheet 1: Payroll ---------------------------------------------------
-  const ws = wb.addWorksheet("Payroll", {
-    views: [{ state: "frozen", ySplit: 4 }],
-  });
+  const COLS = 11;
+  const ws = wb.addWorksheet("Payroll", { views: [{ state: "frozen", ySplit: 4 }] });
   ws.columns = [
     { key: "id", width: 12 },
     { key: "type", width: 11 },
@@ -161,9 +182,10 @@ export async function GET(req: NextRequest) {
     "Total",
     "Payment details",
   ];
-  styleHeader(header);
+  styleHeader(header, COLS);
 
-  members.forEach((m) => {
+  const dataStart = 5;
+  members.forEach((m, i) => {
     const inv = invByMember.get(m.id);
     const status = (inv?.status ?? "not_started") as DashboardStatus;
     const row = ws.addRow({
@@ -179,22 +201,55 @@ export async function GET(req: NextRequest) {
       total: inv ? Number(inv.total) : null,
       payment: m.payment_details ?? "",
     });
+    borderRow(row, COLS, i % 2 === 1 ? ZEBRA : undefined);
     ["subtotal", "tax", "total"].forEach((k) => (row.getCell(k).numFmt = MONEY_FMT));
     row.getCell("taxrate").numFmt = '0.###"%"';
     row.getCell("total").font = { bold: true };
     row.getCell("payment").alignment = { wrapText: true, vertical: "top" };
   });
-  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: 11 } };
+  const dataEnd = 4 + members.length;
+  ws.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: COLS } };
+
+  // Per-currency grand totals (all invoices this period), as live SUMIF rows.
+  if (members.length > 0 && grand.size > 0) {
+    ws.addRow({}); // spacer
+    for (const [cur, g] of grand.entries()) {
+      const row = ws.addRow({ name: `Total — ${cur}`, currency: cur });
+      const r = row.number;
+      row.getCell("subtotal").value = {
+        formula: `SUMIF($F$${dataStart}:$F$${dataEnd},$F$${r},$G$${dataStart}:$G$${dataEnd})`,
+        result: g.subtotal,
+      };
+      row.getCell("tax").value = {
+        formula: `SUMIF($F$${dataStart}:$F$${dataEnd},$F$${r},$I$${dataStart}:$I$${dataEnd})`,
+        result: g.tax,
+      };
+      row.getCell("total").value = {
+        formula: `SUMIF($F$${dataStart}:$F$${dataEnd},$F$${r},$J$${dataStart}:$J$${dataEnd})`,
+        result: g.total,
+      };
+      borderRow(row, COLS);
+      ["subtotal", "tax", "total"].forEach((k) => {
+        const cell = row.getCell(k);
+        cell.numFmt = MONEY_FMT;
+        cell.font = { bold: true };
+        cell.border = { ...BORDER, top: { style: "medium", color: { argb: BRAND } } };
+      });
+      row.getCell("name").font = { bold: true };
+      row.getCell("name").border = { ...BORDER, top: { style: "medium", color: { argb: BRAND } } };
+      row.getCell("currency").font = { bold: true };
+      row.getCell("currency").border = { ...BORDER, top: { style: "medium", color: { argb: BRAND } } };
+    }
+  }
 
   // ---- Sheet 2: Supplier breakdown ---------------------------------------
   const suppliers = members.filter((m) => m.member_type === "supplier" && invByMember.get(m.id));
   if (suppliers.length > 0) {
-    const bs = wb.addWorksheet("Supplier breakdown", {
-      views: [{ state: "frozen", ySplit: 3 }],
-    });
+    const BCOLS = 4;
+    const bs = wb.addWorksheet("Supplier breakdown", { views: [{ state: "frozen", ySplit: 3 }] });
     bs.columns = [
       { key: "supplier", width: 24 },
-      { key: "member", width: 28 },
+      { key: "member", width: 30 },
       { key: "amount", width: 14 },
       { key: "currency", width: 9 },
     ];
@@ -205,41 +260,32 @@ export async function GET(req: NextRequest) {
 
     const bh = bs.getRow(3);
     bh.values = ["Supplier", "Roster member", "Amount", "Currency"];
-    styleHeader(bh);
+    styleHeader(bh, BCOLS);
 
     suppliers.forEach((m) => {
       const inv = invByMember.get(m.id)!;
       const b = breakdown.get(inv.id) ?? { people: new Map<string, { name: string; total: number }>(), other: 0 };
       const people = [...b.people.values()].sort((a, c) => a.name.localeCompare(c.name));
-      const entries: { member: string; amount: number }[] = people.map((p) => ({
-        member: p.name,
-        amount: p.total,
-      }));
+      const entries: { member: string; amount: number }[] = people.map((p) => ({ member: p.name, amount: p.total }));
       if (b.other !== 0) entries.push({ member: "Expenses & adjustments", amount: b.other });
       if (entries.length === 0) entries.push({ member: "(no roster lines yet)", amount: 0 });
 
-      entries.forEach((e) => {
-        const row = bs.addRow({
-          supplier: m.name,
-          member: e.member,
-          amount: e.amount,
-          currency: inv.currency,
-        });
+      entries.forEach((e, i) => {
+        const row = bs.addRow({ supplier: m.name, member: e.member, amount: e.amount, currency: inv.currency });
+        borderRow(row, BCOLS, i % 2 === 1 ? ZEBRA : undefined);
         row.getCell("amount").numFmt = MONEY_FMT;
       });
-      // Supplier total row.
-      const totalRow = bs.addRow({
-        supplier: "",
-        member: `${m.name} — total`,
-        amount: Number(inv.total),
-        currency: inv.currency,
-      });
+      const totalRow = bs.addRow({ member: `${m.name} — total`, amount: Number(inv.total), currency: inv.currency });
+      borderRow(totalRow, BCOLS);
       totalRow.getCell("member").font = { bold: true };
       totalRow.getCell("amount").numFmt = MONEY_FMT;
       totalRow.getCell("amount").font = { bold: true };
+      for (let c = 1; c <= BCOLS; c++) {
+        totalRow.getCell(c).border = { ...BORDER, top: { style: "medium", color: { argb: BRAND } } };
+      }
       bs.addRow({}); // spacer
     });
-    bs.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: 4 } };
+    bs.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: BCOLS } };
   }
 
   const buffer = await wb.xlsx.writeBuffer();
