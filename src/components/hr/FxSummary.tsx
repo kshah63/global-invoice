@@ -96,26 +96,34 @@ export function FxSummary({
           <div className="mb-3 text-sm font-medium text-ink-700">
             Exchange rates for this month
           </div>
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-3">
             {nonSgd.map((e) => (
-              <div key={e.currency} className="flex shrink-0 items-center gap-2">
-                <span className="whitespace-nowrap text-sm text-ink-600">1&nbsp;SGD&nbsp;=</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  inputMode="decimal"
-                  className="w-28 shrink-0 text-right"
-                  value={rates[e.currency] ?? ""}
-                  onChange={(ev) => {
-                    setSaved(false);
-                    setRates((r) => ({ ...r, [e.currency]: ev.target.value }));
-                  }}
-                  placeholder="0.00"
-                />
-                <span className="text-sm font-medium text-ink-700">{e.currency}</span>
+              <div key={e.currency} className="flex items-center gap-2">
+                <span className="w-16 shrink-0 whitespace-nowrap text-sm text-ink-600">
+                  1&nbsp;SGD&nbsp;=
+                </span>
+                <div className="w-32 shrink-0">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    inputMode="decimal"
+                    className="text-right"
+                    value={rates[e.currency] ?? ""}
+                    onChange={(ev) => {
+                      setSaved(false);
+                      setRates((r) => ({ ...r, [e.currency]: ev.target.value }));
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+                <span className="w-12 shrink-0 text-sm font-medium text-ink-700">
+                  {e.currency}
+                </span>
               </div>
             ))}
+          </div>
+          <div className="mt-4 flex items-center gap-3">
             <Button type="button" size="sm" onClick={onSave} loading={saving}>
               Save rates
             </Button>
