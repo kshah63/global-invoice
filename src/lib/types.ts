@@ -105,6 +105,10 @@ export interface Invoice {
   approved_at: string | null;
   locked_at: string | null;
   paid_at: string | null;
+  // Bundling: when an individual invoice is paid via a supplier's bulk transfer.
+  bundled_into_invoice_id: string | null;
+  bundled_rate: number | null; // supplier-currency units per SGD, snapshotted
+  bundled_sgd_amount: number | null; // the individual's SGD amount, snapshotted
   created_at: string;
   updated_at: string;
 }
@@ -126,6 +130,7 @@ export interface InvoiceLineItem {
   supplier_member_id: string | null;
   worked_by_name: string | null;
   source_member_invoice_id: string | null; // set when imported from a member invoice
+  source_individual_invoice_id: string | null; // set when bundled from an individual invoice
   receipt_path: string | null; // storage path for an expense-claim receipt
 }
 

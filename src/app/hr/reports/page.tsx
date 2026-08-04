@@ -65,10 +65,18 @@ export default async function ReportsPage({
     return as - bs || a.name.localeCompare(b.name);
   });
   const invByMember = new Map<string, Invoice>();
-  (invRows as Invoice[] | null)?.forEach((i) => invByMember.set(i.team_member_id, i));
+  const invoiceById = new Map<string, Invoice>();
+  (invRows as Invoice[] | null)?.forEach((i) => {
+    invByMember.set(i.team_member_id, i);
+    invoiceById.set(i.id, i);
+  });
+  const memberNameById = new Map<string, string>();
+  members.forEach((m) => memberNameById.set(m.id, m.name));
 
   // Per-currency totals across the period's invoices, and the set of currencies
   // in use (so every currency — including INR — gets a widget even at 0).
+  // Bundled individual invoices are paid via their supplier, so they're excluded
+  // here to avoid counting the amount twice.
   const curTotals = new Map<Currency, number>();
   const inUse = new Set<Currency>();
   members.forEach((m) => {
@@ -76,7 +84,9 @@ export default async function ReportsPage({
     const inv = invByMember.get(m.id);
     if (inv) {
       inUse.add(inv.currency);
-      curTotals.set(inv.currency, (curTotals.get(inv.currency) ?? 0) + Number(inv.total));
+      if (!inv.bundled_into_invoice_id) {
+        curTotals.set(inv.currency, (curTotals.get(inv.currency) ?? 0) + Number(inv.total));
+      }
     }
   });
   const curOrder = (c: Currency) => (c === "SGD" ? 0 : c === "INR" ? 1 : 2);
@@ -138,6 +148,10 @@ export default async function ReportsPage({
   const reportRows: ReportRow[] = members.map((m) => {
     const inv = invByMember.get(m.id);
     const isSupplier = m.member_type === "supplier";
+    const bundledId = inv?.bundled_into_invoice_id ?? null;
+    const bundledInto = bundledId
+      ? memberNameById.get(invoiceById.get(bundledId)?.team_member_id ?? "") ?? "supplier"
+      : null;
     return {
       id: m.id,
       name: m.name,
@@ -149,6 +163,7 @@ export default async function ReportsPage({
       total: inv ? Number(inv.total) : null,
       invoiceId: inv?.id ?? null,
       isSupplier,
+      bundledInto,
       lines:
         inv && isSupplier
           ? (linesByInvoice.get(inv.id) ?? []).map((l) => ({

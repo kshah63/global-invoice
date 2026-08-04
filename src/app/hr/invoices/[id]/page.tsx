@@ -16,6 +16,11 @@ import {
   MemberSubmissionsPanel,
   type MemberSubmissionRow,
 } from "@/components/invoice/MemberSubmissionsPanel";
+import {
+  BundleIndividualsCard,
+  type BundledRow,
+  type EligibleRow,
+} from "@/components/hr/BundleIndividualsCard";
 import { hrInvoiceTransition } from "@/actions/invoices";
 import type {
   DeptHeadCheck,
@@ -125,6 +130,80 @@ export default async function HrInvoiceDetail({
       .sort((a, b) => a.memberName.localeCompare(b.memberName));
   }
 
+  // Bundling: individuals paid via this supplier invoice, + who's eligible to add.
+  let bundledRows: BundledRow[] = [];
+  let eligibleRows: EligibleRow[] = [];
+  let supplierRateSet = invoice.currency === "SGD";
+  let supRate = 1;
+  if (tm?.member_type === "supplier") {
+    if (invoice.currency !== "SGD") {
+      const { data: fx } = await supabase
+        .from("report_fx_rates")
+        .select("units_per_sgd")
+        .eq("year", invoice.period_year)
+        .eq("month", invoice.period_month)
+        .eq("currency", invoice.currency)
+        .maybeSingle();
+      if (fx) {
+        supplierRateSet = true;
+        supRate = Number((fx as { units_per_sgd: number }).units_per_sgd);
+      }
+    }
+    const [{ data: bRows }, { data: eRows }] = await Promise.all([
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, total, bundled_sgd_amount, bundled_rate, team_members(name)")
+        .eq("bundled_into_invoice_id", invoice.id),
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, total, status, team_members(name, member_type)")
+        .eq("period_year", invoice.period_year)
+        .eq("period_month", invoice.period_month)
+        .is("bundled_into_invoice_id", null)
+        .in("status", ["approved", "locked", "paid"]),
+    ]);
+    type BRow = {
+      id: string;
+      invoice_number: string;
+      total: number;
+      bundled_sgd_amount: number | null;
+      bundled_rate: number | null;
+      team_members: { name: string } | null;
+    };
+    bundledRows = ((bRows as unknown as BRow[]) ?? []).map((r) => {
+      const sgd = Number(r.bundled_sgd_amount ?? 0);
+      const rate = Number(r.bundled_rate ?? supRate);
+      const currentSgd = Number(r.total); // individuals are in SGD
+      const stale =
+        Math.abs(currentSgd - sgd) > 0.005 ||
+        (supplierRateSet && Math.abs(rate - supRate) > 0.0000005);
+      return {
+        individualInvoiceId: r.id,
+        name: r.team_members?.name ?? "Individual",
+        invoiceNumber: r.invoice_number,
+        sgdAmount: sgd,
+        rate,
+        converted: Math.round(sgd * rate * 100) / 100,
+        stale,
+      };
+    });
+    type ERow = {
+      id: string;
+      invoice_number: string;
+      total: number;
+      team_members: { name: string; member_type: string } | null;
+    };
+    eligibleRows = ((eRows as unknown as ERow[]) ?? [])
+      .filter((r) => r.team_members?.member_type !== "supplier")
+      .map((r) => ({
+        invoiceId: r.id,
+        name: r.team_members?.name ?? "Individual",
+        invoiceNumber: r.invoice_number,
+        sgdTotal: Number(r.total),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   // Author names for the checks
   const authorIds = Array.from(new Set(checks.map((c) => c.created_by)));
   const authorName = new Map<string, string>();
@@ -225,6 +304,18 @@ export default async function HrInvoiceDetail({
           </Button>
         </CardBody>
       </Card>
+
+      {tm?.member_type === "supplier" && (
+        <BundleIndividualsCard
+          supplierInvoiceId={invoice.id}
+          supplierCurrency={invoice.currency}
+          rateSet={supplierRateSet}
+          periodLabel={periodLabel(invoice.period_year, invoice.period_month)}
+          paid={invoice.status === "paid"}
+          bundled={bundledRows}
+          eligible={eligibleRows}
+        />
+      )}
 
       {/* Department head cross-check */}
       {checks.length > 0 && (

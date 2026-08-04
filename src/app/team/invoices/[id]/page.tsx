@@ -20,6 +20,7 @@ import {
 } from "@/components/invoice/MemberSubmissionsPanel";
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { RosterPayoutCard, type PayoutRow } from "@/components/team/RosterPayoutCard";
+import { BundledByHrCard } from "@/components/team/BundledByHrCard";
 import { InvoiceTabs } from "@/components/team/InvoiceTabs";
 import { deleteInvoice } from "@/actions/invoices";
 import type {
@@ -64,6 +65,7 @@ export default async function TeamInvoiceDetail({
   ]);
 
   const items = (itemsRows as InvoiceLineItem[]) ?? [];
+  const bundledLines = items.filter((i) => i.source_individual_invoice_id);
   const tm = tmRow as TeamMember | null;
   const isSupplier = tm?.member_type === "supplier";
   const editable = canTeamMemberEdit(invoice.status);
@@ -203,6 +205,19 @@ export default async function TeamInvoiceDetail({
     rates = (rateRows as TeamMemberRate[]) ?? [];
   }
 
+  // If this individual invoice is bundled into a supplier's bulk transfer, note it.
+  let bundledIntoName: string | null = null;
+  if (!isSupplier && invoice.bundled_into_invoice_id) {
+    const { data: bInto } = await supabase
+      .from("invoices")
+      .select("team_members(name)")
+      .eq("id", invoice.bundled_into_invoice_id)
+      .maybeSingle();
+    bundledIntoName =
+      (bInto as { team_members: { name: string } | null } | null)?.team_members?.name ??
+      "a supplier";
+  }
+
   const deleteDraft =
     editable && invoice.status === "draft" ? (
       <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">
@@ -232,9 +247,12 @@ export default async function TeamInvoiceDetail({
             consolidatedInvoiceId={invoice.id}
             submissions={submissions}
           />
+          {bundledLines.length > 0 && (
+            <BundledByHrCard lines={bundledLines} currency={invoice.currency} />
+          )}
           <SupplierInvoiceEditor
             invoice={invoice}
-            initialItems={items}
+            initialItems={items.filter((i) => !i.source_individual_invoice_id)}
             roster={roster}
             supplierName={tm?.name ?? invoice.display_name}
             submissionCount={submissions.filter((s) => s.status === "submitted").length}
@@ -292,6 +310,13 @@ export default async function TeamInvoiceDetail({
       </div>
 
       <Flash ok={searchParams.ok} error={searchParams.error} />
+
+      {bundledIntoName && (
+        <Alert tone="info" className="mb-6" title={`Paid via ${bundledIntoName}`}>
+          This invoice is included in {bundledIntoName}&apos;s bulk transfer, so it won&apos;t
+          be paid to you separately.
+        </Alert>
+      )}
 
       {isSupplier ? (
         <InvoiceTabs

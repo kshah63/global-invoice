@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { StatusPill } from "@/components/ui/Badge";
+import { StatusPill, Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/Feedback";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import type { Currency, DashboardStatus } from "@/lib/constants";
@@ -28,6 +28,7 @@ export interface ReportRow {
   total: number | null;
   invoiceId: string | null;
   isSupplier: boolean;
+  bundledInto: string | null; // supplier name, when this individual is paid via a supplier
   lines: ReportLine[];
 }
 
@@ -152,7 +153,14 @@ function FragmentRow({
         </td>
         <td className="px-5 py-3 font-mono text-xs text-ink-500">{r.idLabel}</td>
         <td className="px-5 py-3">
-          <StatusPill status={r.status} />
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill status={r.status} />
+            {r.bundledInto && (
+              <Badge className="bg-gold-50 text-gold-800 ring-gold-200">
+                Paid via {r.bundledInto}
+              </Badge>
+            )}
+          </div>
         </td>
         <td className="px-5 py-3 text-right tnum">
           {r.subtotal != null ? formatCurrency(r.subtotal, r.currency) : "—"}
@@ -160,7 +168,9 @@ function FragmentRow({
         <td className="px-5 py-3 text-right tnum">
           {r.tax != null ? formatCurrency(r.tax, r.currency) : "—"}
         </td>
-        <td className="px-5 py-3 text-right font-medium tnum">
+        <td
+          className={`px-5 py-3 text-right font-medium tnum ${r.bundledInto ? "text-ink-400 line-through" : ""}`}
+        >
           {r.total != null ? formatCurrency(r.total, r.currency) : "—"}
         </td>
       </tr>
