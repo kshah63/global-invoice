@@ -99,6 +99,9 @@ export interface SaveMemberInvoiceInput {
   notes: string | null;
   lines: MemberRateLineInput[]; // per-rate quantities (ignored for fixed salary)
   adjustments: MemberAdjustmentInput[];
+  // For fixed-salary members: sessions/hours worked (record only, not pay).
+  fixedSessions?: number;
+  fixedHours?: number;
 }
 
 export async function saveMemberInvoice(
@@ -111,6 +114,8 @@ export async function saveMemberInvoice(
     p_notes: input.notes,
     p_lines: input.lines,
     p_adjustments: input.adjustments,
+    p_fixed_sessions: input.fixedSessions ?? 0,
+    p_fixed_hours: input.fixedHours ?? 0,
   });
   if (error) return { error: error.message };
 

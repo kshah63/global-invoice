@@ -290,6 +290,16 @@ export function InvoiceEditor({
       setError("Add at least one line item before submitting.");
       return;
     }
+    const badFixed = rows.find(
+      (r) =>
+        isFixedSalaryTask(r.task) && (!(Number(r.sessions) > 0) || !(Number(r.hours) > 0))
+    );
+    if (badFixed) {
+      setError(
+        "Fixed-salary lines need both sessions and hours (for the teaching-tracker cross-check)."
+      );
+      return;
+    }
     setBusy("submit");
     const saved = await doSave();
     if (!saved) {
@@ -522,28 +532,30 @@ export function InvoiceEditor({
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div>
-                    <Label>Sessions</Label>
+                    <Label>
+                      Sessions{fixed && <span className="text-red-500"> *</span>}
+                    </Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.5"
                       inputMode="decimal"
-                      value={fixed ? "" : row.sessions}
-                      disabled={fixed}
+                      value={row.sessions}
                       onChange={(e) =>
                         patchRow(row.key, { sessions: e.target.value })
                       }
                     />
                   </div>
                   <div>
-                    <Label>Time (hours)</Label>
+                    <Label>
+                      Time (hours){fixed && <span className="text-red-500"> *</span>}
+                    </Label>
                     <Input
                       type="number"
                       min="0"
                       step="0.25"
                       inputMode="decimal"
-                      value={fixed ? "" : row.hours}
-                      disabled={fixed}
+                      value={row.hours}
                       onChange={(e) => patchRow(row.key, { hours: e.target.value })}
                     />
                   </div>

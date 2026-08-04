@@ -80,6 +80,15 @@ export function MemberInvoiceEditor({
         };
       })
   );
+  // Fixed-salary members still log sessions/hours (record only, for the
+  // teaching-tracker cross-check).
+  const fixedItem = initialItems.find((x) => x.task === "fixed_salary");
+  const [fixedSessions, setFixedSessions] = useState<string>(
+    fixedItem?.sessions ? String(fixedItem.sessions) : ""
+  );
+  const [fixedHours, setFixedHours] = useState<string>(
+    fixedItem?.hours ? String(fixedItem.hours) : ""
+  );
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -139,6 +148,8 @@ export function MemberInvoiceEditor({
         ? rates.map((r) => ({ rate_id: r.id, quantity: Number(qtys[r.id]) || 0 }))
         : [],
       adjustments: adjPayload,
+      fixedSessions: isRate ? undefined : Number(fixedSessions) || 0,
+      fixedHours: isRate ? undefined : Number(fixedHours) || 0,
     });
     if (res.error) {
       setError(res.error);
@@ -156,6 +167,10 @@ export function MemberInvoiceEditor({
     setBusy(null);
   }
   async function onSubmit() {
+    if (!isRate && (!(Number(fixedSessions) > 0) || !(Number(fixedHours) > 0))) {
+      setError("Enter the sessions and hours you worked this month before confirming.");
+      return;
+    }
     setBusy("submit");
     if (await doSave()) {
       const res = await submitMemberInvoice(invoice.id);
@@ -237,11 +252,43 @@ export function MemberInvoiceEditor({
               </div>
             )
           ) : (
-            <div className="flex items-center justify-between rounded-xl border border-ink-200 bg-white px-4 py-3">
-              <span className="text-sm text-ink-500">Monthly salary</span>
-              <span className="tnum text-lg font-semibold text-ink-900">
-                {formatCurrency(baseTotal, currency)}
-              </span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-ink-200 bg-white px-4 py-3">
+                <span className="text-sm text-ink-500">Monthly salary</span>
+                <span className="tnum text-lg font-semibold text-ink-900">
+                  {formatCurrency(baseTotal, currency)}
+                </span>
+              </div>
+              <div className="grid gap-3 rounded-xl border border-ink-200 bg-ink-50/40 p-3 sm:grid-cols-2">
+                <div>
+                  <Label>
+                    Sessions worked <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={fixedSessions}
+                    onChange={(e) => setFixedSessions(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>
+                    Hours worked <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.25"
+                    value={fixedHours}
+                    onChange={(e) => setFixedHours(e.target.value)}
+                  />
+                </div>
+                <p className="text-xs text-ink-400 sm:col-span-2">
+                  Required for our records (cross-checked against the teaching tracker). This
+                  doesn&apos;t change your salary.
+                </p>
+              </div>
             </div>
           )}
         </CardBody>

@@ -451,6 +451,19 @@ export function SupplierInvoiceEditor({
       setError("Attach a receipt to every expense claim before submitting.");
       return;
     }
+    // Fixed-salary lines still need sessions + hours for the teaching-tracker check.
+    const badFixed = rows.find(
+      (r) =>
+        r.kind === "person" &&
+        r.rate_unit === "fixed" &&
+        (!(Number(r.sessions) > 0) || !(Number(r.hours) > 0))
+    );
+    if (badFixed) {
+      setError(
+        "Fixed-salary lines need both sessions and hours (for the teaching-tracker cross-check)."
+      );
+      return;
+    }
     setBusy("submit");
     if (await doSave()) {
       // Always pull in any outstanding member submissions before submitting so
@@ -616,10 +629,15 @@ export function SupplierInvoiceEditor({
                           ))}
                         </Select>
                       </Field>
-                      {row.rate_unit !== "fixed" && (
+                      {(
                         <>
                           <div>
-                            <Label>Sessions</Label>
+                            <Label>
+                              Sessions
+                              {row.rate_unit === "fixed" && (
+                                <span className="text-red-500"> *</span>
+                              )}
+                            </Label>
                             <Input
                               type="number"
                               min="0"
@@ -629,7 +647,12 @@ export function SupplierInvoiceEditor({
                             />
                           </div>
                           <div>
-                            <Label>Hours</Label>
+                            <Label>
+                              Hours
+                              {row.rate_unit === "fixed" && (
+                                <span className="text-red-500"> *</span>
+                              )}
+                            </Label>
                             <Input
                               type="number"
                               min="0"
