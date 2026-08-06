@@ -121,6 +121,7 @@ export default async function MemberInvoiceDetail({
             monthlySalary={member?.monthly_salary != null ? Number(member.monthly_salary) : 0}
             rates={rates}
             supplierName={supplierName}
+            role={member?.role ?? null}
           />
           {(invoice.status === "draft" || invoice.status === "returned") && (
             <div className="mt-8 rounded-2xl border border-red-100 bg-red-50/50 p-4">

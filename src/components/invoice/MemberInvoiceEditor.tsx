@@ -43,6 +43,7 @@ export function MemberInvoiceEditor({
   monthlySalary,
   rates,
   supplierName,
+  role,
 }: {
   invoice: SupplierMemberInvoice;
   initialItems: SupplierMemberInvoiceItem[];
@@ -50,10 +51,13 @@ export function MemberInvoiceEditor({
   monthlySalary: number;
   rates: MemberRate[];
   supplierName: string;
+  role?: string | null;
 }) {
   const router = useRouter();
   const currency = invoice.currency; // rate currency
   const isRate = payType === "rate";
+  // Only teachers log sessions/hours for the tracker cross-check.
+  const logSessions = !isRate && role === "teacher";
 
   const [displayName, setDisplayName] = useState(invoice.display_name);
   const [notes, setNotes] = useState(invoice.notes ?? "");
@@ -167,7 +171,7 @@ export function MemberInvoiceEditor({
     setBusy(null);
   }
   async function onSubmit() {
-    if (!isRate && (!(Number(fixedSessions) > 0) || !(Number(fixedHours) > 0))) {
+    if (logSessions && (!(Number(fixedSessions) > 0) || !(Number(fixedHours) > 0))) {
       setError("Enter the sessions and hours you worked this month before confirming.");
       return;
     }
@@ -259,6 +263,7 @@ export function MemberInvoiceEditor({
                   {formatCurrency(baseTotal, currency)}
                 </span>
               </div>
+              {logSessions && (
               <div className="grid gap-3 rounded-xl border border-ink-200 bg-ink-50/40 p-3 sm:grid-cols-2">
                 <div>
                   <Label>
@@ -289,6 +294,7 @@ export function MemberInvoiceEditor({
                   doesn&apos;t change your salary.
                 </p>
               </div>
+              )}
             </div>
           )}
         </CardBody>

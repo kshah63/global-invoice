@@ -25,6 +25,7 @@ import { StatusPill } from "@/components/ui/Badge";
 export interface RosterPerson {
   id: string;
   name: string;
+  role?: string | null;
   rates: { id: string; descriptor: string; unit: RateUnit; amount: number; task: TaskType | null }[];
 }
 
@@ -451,16 +452,19 @@ export function SupplierInvoiceEditor({
       setError("Attach a receipt to every expense claim before submitting.");
       return;
     }
-    // Fixed-salary lines still need sessions + hours for the teaching-tracker check.
+    // Fixed-salary teacher lines still need sessions + hours for the
+    // teaching-tracker check. Non-teacher fixed roles (managers, phone
+    // ambassadors) are exempt.
     const badFixed = rows.find(
       (r) =>
         r.kind === "person" &&
         r.rate_unit === "fixed" &&
+        personById.get(r.supplier_member_id)?.role === "teacher" &&
         (!(Number(r.sessions) > 0) || !(Number(r.hours) > 0))
     );
     if (badFixed) {
       setError(
-        "Fixed-salary lines need both sessions and hours (for the teaching-tracker cross-check)."
+        "Fixed-salary teachers need both sessions and hours (for the teaching-tracker cross-check)."
       );
       return;
     }
@@ -629,7 +633,7 @@ export function SupplierInvoiceEditor({
                           ))}
                         </Select>
                       </Field>
-                      {(
+                      {(row.rate_unit !== "fixed" || person?.role === "teacher") && (
                         <>
                           <div>
                             <Label>

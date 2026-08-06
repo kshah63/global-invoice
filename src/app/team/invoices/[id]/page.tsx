@@ -114,6 +114,7 @@ export default async function TeamInvoiceDetail({
         return {
           id: m.id,
           name: m.name,
+          role: m.role,
           rates: [
             {
               id: m.id,
@@ -142,7 +143,7 @@ export default async function TeamInvoiceDetail({
           task: (m.rate_task ?? null) as TaskType | null,
         });
       }
-      return { id: m.id, name: m.name, rates: rateList };
+      return { id: m.id, name: m.name, role: m.role, rates: rateList };
     });
     type SubItem = {
       id: string;
