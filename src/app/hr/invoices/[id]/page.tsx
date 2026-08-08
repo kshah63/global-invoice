@@ -243,7 +243,10 @@ export default async function HrInvoiceDetail({
   return (
     <>
       <div className="mb-4">
-        <Link href="/hr/invoices" className="text-sm text-brand-600 hover:underline">
+        <Link
+          href={`/hr/invoices?year=${invoice.period_year}&month=${invoice.period_month}`}
+          className="text-sm text-brand-600 hover:underline"
+        >
           ← Invoices
         </Link>
       </div>

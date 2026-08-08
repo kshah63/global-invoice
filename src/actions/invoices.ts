@@ -308,3 +308,31 @@ export async function hrInvoiceTransition(formData: FormData) {
   revalidatePath("/hr");
   redirect(`/hr/invoices/${id}?ok=${encodeURIComponent(def.label + " done.")}`);
 }
+
+// --- HR: bulk "mark as paid" from the list --------------------------------
+// Flip several approved invoices to paid in one guarded update, so HR doesn't
+// have to open each one after making the month's payments. Only invoices still
+// in a payable state are touched — a status that changed since the list loaded
+// is skipped rather than clobbered. Marking a supplier paid also cascades to any
+// individuals bundled into it (via the propagate_bundle_payment DB trigger).
+
+export async function markInvoicesPaidBatch(
+  ids: string[]
+): Promise<{ count?: number; error?: string }> {
+  const session = await getSession();
+  if (!session || session.profile.role !== "hr") return { error: "Not authorized." };
+  if (!ids.length) return { count: 0 };
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({ status: "paid" })
+    .in("id", ids)
+    .in("status", ["approved", "locked"])
+    .select("id");
+  if (error) return { error: error.message };
+
+  revalidatePath("/hr/invoices");
+  revalidatePath("/hr");
+  return { count: data?.length ?? 0 };
+}

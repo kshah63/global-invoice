@@ -41,6 +41,9 @@ export default async function HrInvoicesPage({
     currency: inv.currency,
     year: inv.period_year,
     month: inv.period_month,
+    // Individuals folded into a supplier's bulk transfer are paid via that
+    // supplier, so they're never independently selectable for "mark paid".
+    bundled: !!inv.bundled_into_invoice_id,
   }));
 
   return (
