@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/AppShell";
 import { PeriodNav } from "@/components/hr/PeriodNav";
 import { PrintButton } from "@/components/PrintButton";
+import { Button } from "@/components/ui/Button";
 import { ReportTable, type ReportRow } from "@/components/hr/ReportTable";
 import { FxSummary } from "@/components/hr/FxSummary";
 import {
@@ -184,7 +185,14 @@ export default async function ReportsPage({
       <PageHeader
         title="Payroll Report"
         description={`All active team members for ${periodLabel(year, month)}. Click a name to open the invoice, or a supplier to see its line items.`}
-        action={<PrintButton />}
+        action={
+          <div className="flex gap-2">
+            <Button href="/hr/reports/monthly" variant="neutral">
+              Month-by-month
+            </Button>
+            <PrintButton />
+          </div>
+        }
       />
 
       <div className="mb-6 no-print">
