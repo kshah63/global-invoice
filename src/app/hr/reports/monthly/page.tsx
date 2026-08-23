@@ -10,6 +10,7 @@ import {
   type MatrixCol,
   type MatrixRow,
   type MatrixCell,
+  type MatrixSubRow,
 } from "@/components/hr/PayrollMatrix";
 import { round2 } from "@/lib/invoice";
 import { MONTH_NAMES, type Currency } from "@/lib/constants";
@@ -37,6 +38,15 @@ type MemberLite = {
   member_type: string;
   currency: Currency;
 };
+type LineLite = {
+  invoice_id: string;
+  supplier_member_id: string | null;
+  worked_by_name: string | null;
+  line_total: number;
+  source_individual_invoice_id: string | null;
+};
+
+const OTHER = "__other__";
 
 export default async function MonthlyReport({
   searchParams,
@@ -123,6 +133,31 @@ export default async function MonthlyReport({
     colIndex.has(`${i.period_year}-${i.period_month}`)
   );
 
+  // Supplier invoices are broken down by roster member, so pull their line items.
+  const supInvMeta = new Map<
+    string,
+    { tm: string; ci: number; currency: Currency; year: number; month: number }
+  >();
+  invoices.forEach((i) => {
+    if (memberType.get(i.team_member_id) !== "supplier") return;
+    const ci = colIndex.get(`${i.period_year}-${i.period_month}`);
+    if (ci === undefined) return;
+    supInvMeta.set(i.id, {
+      tm: i.team_member_id,
+      ci,
+      currency: i.currency as Currency,
+      year: i.period_year,
+      month: i.period_month,
+    });
+  });
+  const supInvIds = [...supInvMeta.keys()];
+  const { data: liRows } = supInvIds.length
+    ? await supabase
+        .from("invoice_line_items")
+        .select("invoice_id, supplier_member_id, worked_by_name, line_total, source_individual_invoice_id")
+        .in("invoice_id", supInvIds)
+    : { data: [] as LineLite[] };
+
   const fx = new Map<string, number>();
   ((fxRows as { year: number; month: number; currency: Currency; units_per_sgd: number }[]) ?? []).forEach(
     (r) => fx.set(`${r.year}-${r.month}-${r.currency}`, Number(r.units_per_sgd))
@@ -130,77 +165,102 @@ export default async function MonthlyReport({
   const rateFor = (y: number, m: number, cur: Currency): number | null =>
     cur === "SGD" ? 1 : fx.get(`${y}-${m}-${cur}`) ?? null;
 
-  // Individuals bundled into a supplier are paid via that supplier's transfer, so
-  // the supplier's own pay excludes them (they appear on their own rows). Sum the
-  // bundled portion per supplier invoice.
-  const bundledNativeByInv = new Map<string, number>();
-  const bundledSgdByInv = new Map<string, number>();
-  invoices.forEach((i) => {
-    if (i.bundled_into_invoice_id) {
-      const sgdAmt = Number(i.bundled_sgd_amount ?? 0);
-      const nat = sgdAmt * Number(i.bundled_rate ?? 0);
-      bundledNativeByInv.set(
-        i.bundled_into_invoice_id,
-        (bundledNativeByInv.get(i.bundled_into_invoice_id) ?? 0) + nat
-      );
-      bundledSgdByInv.set(
-        i.bundled_into_invoice_id,
-        (bundledSgdByInv.get(i.bundled_into_invoice_id) ?? 0) + sgdAmt
-      );
-    }
-  });
-
   type Acc = { native: number; sgd: number; sgdMissing: boolean };
-  const cellAcc = new Map<string, Acc>();
+  const cellAcc = new Map<string, Acc>(); // `${teamMemberId}|${ci}`
+  const subAcc = new Map<string, Acc>(); // `${supplierTeamMemberId}|${ci}|${rosterKey}`
+  const supRosterKeys = new Map<string, Set<string>>(); // supplier -> roster keys seen
+  const subName = new Map<string, string>(); // supplier_member_id -> display name
   let anyMissingRate = false;
 
+  const addAcc = (map: Map<string, Acc>, key: string, native: number, sgd: number | null) => {
+    const acc = map.get(key) ?? { native: 0, sgd: 0, sgdMissing: false };
+    acc.native += native;
+    if (sgd == null) acc.sgdMissing = true;
+    else acc.sgd += sgd;
+    map.set(key, acc);
+  };
+
+  // Individuals: their own paid invoice total (in their currency, normally SGD).
   invoices.forEach((i) => {
+    if (memberType.get(i.team_member_id) === "supplier") return;
     const ci = colIndex.get(`${i.period_year}-${i.period_month}`);
     if (ci === undefined) return;
-    const isSupplier = memberType.get(i.team_member_id) === "supplier";
-    const cur = i.currency as Currency;
-    const rate = rateFor(i.period_year, i.period_month, cur);
-
-    let nativeOwn = Number(i.total);
-    let sgdOwn: number | null;
-    if (isSupplier) {
-      nativeOwn = Number(i.total) - (bundledNativeByInv.get(i.id) ?? 0);
-      sgdOwn = rate == null ? null : Number(i.total) / rate - (bundledSgdByInv.get(i.id) ?? 0);
-    } else {
-      sgdOwn = rate == null ? null : Number(i.total) / rate;
-    }
-    if (sgdOwn == null) anyMissingRate = true;
-
-    const key = `${i.team_member_id}|${ci}`;
-    const acc = cellAcc.get(key) ?? { native: 0, sgd: 0, sgdMissing: false };
-    acc.native += nativeOwn;
-    if (sgdOwn == null) acc.sgdMissing = true;
-    else acc.sgd += sgdOwn;
-    cellAcc.set(key, acc);
+    const rate = rateFor(i.period_year, i.period_month, i.currency as Currency);
+    if (rate == null) anyMissingRate = true;
+    addAcc(cellAcc, `${i.team_member_id}|${ci}`, Number(i.total), rate == null ? null : Number(i.total) / rate);
   });
 
-  const rows: MatrixRow[] = members.map((m) => {
-    const cur = m.currency as Currency;
+  // Suppliers: cells + per-roster-member breakdown, built from the line items.
+  // Bundled individual lines are skipped (those individuals show on their own rows).
+  ((liRows as LineLite[]) ?? []).forEach((li) => {
+    if (li.source_individual_invoice_id) return;
+    const meta = supInvMeta.get(li.invoice_id);
+    if (!meta) return;
+    const amt = Number(li.line_total);
+    const rate = rateFor(meta.year, meta.month, meta.currency);
+    if (rate == null) anyMissingRate = true;
+    const sgd = rate == null ? null : amt / rate;
+    const rosterKey = li.supplier_member_id ?? OTHER;
+    addAcc(cellAcc, `${meta.tm}|${meta.ci}`, amt, sgd);
+    addAcc(subAcc, `${meta.tm}|${meta.ci}|${rosterKey}`, amt, sgd);
+    const set = supRosterKeys.get(meta.tm) ?? new Set<string>();
+    set.add(rosterKey);
+    supRosterKeys.set(meta.tm, set);
+    if (li.supplier_member_id) {
+      subName.set(li.supplier_member_id, li.worked_by_name ?? "Roster member");
+    }
+  });
+
+  const cellsFrom = (
+    get: (ci: number) => Acc | undefined
+  ): { cells: MatrixCell[]; rowTotal: number | null } => {
     const cells: MatrixCell[] = colPairs.map((_, ci) => {
-      const acc = cellAcc.get(`${m.id}|${ci}`);
+      const acc = get(ci);
       if (!acc) return { value: null };
-      if (sgd) {
-        return acc.sgdMissing ? { value: null, missingRate: true } : { value: round2(acc.sgd) };
-      }
+      if (sgd) return acc.sgdMissing ? { value: null, missingRate: true } : { value: round2(acc.sgd) };
       return { value: round2(acc.native) };
     });
     const usable = cells.filter((c) => c.value != null && !c.missingRate).map((c) => c.value!);
     const rowTotal = cells.some((c) => c.value != null || c.missingRate)
       ? round2(usable.reduce((s, v) => s + v, 0))
       : null;
+    return { cells, rowTotal };
+  };
+
+  const rows: MatrixRow[] = members.map((m) => {
+    const cur = m.currency as Currency;
+    const isSupplier = m.member_type === "supplier";
+    const main = cellsFrom((ci) => cellAcc.get(`${m.id}|${ci}`));
+
+    let subRows: MatrixSubRow[] | undefined;
+    if (isSupplier) {
+      const keys = [...(supRosterKeys.get(m.id) ?? new Set<string>())];
+      const memberKeys = keys
+        .filter((k) => k !== OTHER)
+        .sort((a, b) => (subName.get(a) ?? "").localeCompare(subName.get(b) ?? ""));
+      const ordered = [...memberKeys, ...(keys.includes(OTHER) ? [OTHER] : [])];
+      const built = ordered.map((k) => {
+        const c = cellsFrom((ci) => subAcc.get(`${m.id}|${ci}|${k}`));
+        return {
+          id: k,
+          name: k === OTHER ? "Expenses & adjustments" : subName.get(k) ?? "Roster member",
+          cells: c.cells,
+          rowTotal: c.rowTotal,
+          isOther: k === OTHER,
+        };
+      });
+      if (built.length > 0) subRows = built;
+    }
+
     return {
       id: m.id,
       name: m.name,
       idLabel: m.employee_id ?? m.supplier_code ?? "",
-      isSupplier: m.member_type === "supplier",
+      isSupplier,
       currency: cur,
-      cells,
-      rowTotal,
+      cells: main.cells,
+      rowTotal: main.rowTotal,
+      subRows,
     };
   });
 
