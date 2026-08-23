@@ -159,6 +159,7 @@ export const INVOICE_STATUSES = [
   "approved",
   "locked",
   "paid",
+  "reversed",
 ] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
@@ -198,6 +199,11 @@ export const STATUS_META: Record<
     label: "Paid",
     badge: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     dot: "bg-emerald-500",
+  },
+  reversed: {
+    label: "Reversed",
+    badge: "bg-rose-50 text-rose-700 ring-rose-200",
+    dot: "bg-rose-500",
   },
 };
 

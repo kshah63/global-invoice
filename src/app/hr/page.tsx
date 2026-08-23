@@ -78,6 +78,7 @@ export default async function HrDashboard({
     approved: 0,
     locked: 0,
     paid: 0,
+    reversed: 0,
   };
   rows.forEach((r) => (counts[r.status] += 1));
   // The "lock" step was removed; fold any legacy locked invoices into approved

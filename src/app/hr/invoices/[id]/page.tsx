@@ -21,6 +21,7 @@ import {
   type BundledRow,
   type EligibleRow,
 } from "@/components/hr/BundleIndividualsCard";
+import { ReversalCarryCard, type CarriedInfo } from "@/components/hr/ReversalCarryCard";
 import { hrInvoiceTransition } from "@/actions/invoices";
 import type {
   DeptHeadCheck,
@@ -238,6 +239,45 @@ export default async function HrInvoiceDetail({
     new Set<TaskType>([...invoiceAgg.keys(), ...checkAgg.keys()])
   );
 
+  // Reversal carry-forward (individual invoices only): offered on a paid invoice,
+  // and shown with an undo once reversed.
+  const isIndividual = tm?.member_type !== "supplier";
+  const nextY = invoice.period_month === 12 ? invoice.period_year + 1 : invoice.period_year;
+  const nextM = invoice.period_month === 12 ? 1 : invoice.period_month + 1;
+  const nextPeriodLabel = periodLabel(nextY, nextM);
+  let carriedInfo: CarriedInfo | null = null;
+  if (isIndividual && invoice.status === "reversed" && invoice.carried_to_invoice_id) {
+    const [{ data: tInv }, { data: cLines }] = await Promise.all([
+      supabase
+        .from("invoices")
+        .select("invoice_number, period_year, period_month")
+        .eq("id", invoice.carried_to_invoice_id)
+        .maybeSingle(),
+      supabase
+        .from("invoice_line_items")
+        .select("line_total")
+        .eq("invoice_id", invoice.carried_to_invoice_id)
+        .eq("source_reversed_invoice_id", invoice.id),
+    ]);
+    const amt = ((cLines as { line_total: number }[]) ?? []).reduce(
+      (s, l) => s + Number(l.line_total),
+      0
+    );
+    if (tInv) {
+      const t = tInv as { invoice_number: string; period_year: number; period_month: number };
+      carriedInfo = {
+        targetInvoiceId: invoice.carried_to_invoice_id,
+        targetInvoiceNumber: t.invoice_number,
+        targetPeriodLabel: periodLabel(t.period_year, t.period_month),
+        amount: amt,
+      };
+    }
+  }
+  const showReversalCard =
+    isIndividual &&
+    (invoice.status === "reversed" ||
+      (invoice.status === "paid" && !invoice.bundled_into_invoice_id));
+
   const actions = hrActionsFor(invoice.status);
 
   return (
@@ -307,6 +347,17 @@ export default async function HrInvoiceDetail({
           </Button>
         </CardBody>
       </Card>
+
+      {showReversalCard && (
+        <ReversalCarryCard
+          invoiceId={invoice.id}
+          status={invoice.status === "reversed" ? "reversed" : "paid"}
+          currency={invoice.currency}
+          defaultAmount={Number(invoice.total)}
+          nextPeriodLabel={nextPeriodLabel}
+          carried={carriedInfo}
+        />
+      )}
 
       {tm?.member_type === "supplier" && (
         <BundleIndividualsCard

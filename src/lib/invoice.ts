@@ -81,7 +81,12 @@ export const TEAM_MEMBER_EDITABLE: InvoiceStatus[] = ["draft", "submitted"];
  * correction is needed). "locked" is retained only for legacy invoices.
  */
 export function isContentLocked(status: InvoiceStatus): boolean {
-  return status === "approved" || status === "locked" || status === "paid";
+  return (
+    status === "approved" ||
+    status === "locked" ||
+    status === "paid" ||
+    status === "reversed"
+  );
 }
 
 export function canTeamMemberEdit(status: InvoiceStatus): boolean {

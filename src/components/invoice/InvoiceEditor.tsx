@@ -65,11 +65,15 @@ export function InvoiceEditor({
   initialItems,
   rates,
   teamMember,
+  carriedForward = 0,
 }: {
   invoice: Invoice;
   initialItems: InvoiceLineItem[];
   rates: TeamMemberRate[];
   teamMember: { name: string; fixed_salary: number | null };
+  // Sum of HR-added carry-forward lines (a reversed payment from last month).
+  // Read-only here; shown separately and folded into the totals.
+  carriedForward?: number;
 }) {
   const router = useRouter();
   const currency = invoice.currency;
@@ -99,10 +103,16 @@ export function InvoiceEditor({
     });
   }
   const lineTotals = rows.map(rowTotal);
+  // The carried-forward amount is a real line on the invoice, so it belongs in
+  // the subtotal (and is taxed the same way the DB computes it).
   const totals = useMemo(
-    () => computeInvoiceTotals(lineTotals, Number(taxRate) || 0),
+    () =>
+      computeInvoiceTotals(
+        carriedForward ? [...lineTotals, carriedForward] : lineTotals,
+        Number(taxRate) || 0
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(lineTotals), taxRate]
+    [JSON.stringify(lineTotals), taxRate, carriedForward]
   );
 
   function patchRow(key: string, patch: Partial<Row>) {
@@ -286,7 +296,7 @@ export function InvoiceEditor({
   }
 
   async function onSubmit() {
-    if (rows.length === 0) {
+    if (rows.length === 0 && !carriedForward) {
       setError("Add at least one line item before submitting.");
       return;
     }
@@ -597,12 +607,26 @@ export function InvoiceEditor({
               />
             </Field>
             <div className="space-y-2 text-sm">
+              {carriedForward > 0 && (
+                <div className="flex items-center justify-between text-ink-600">
+                  <span>Carried forward from last month</span>
+                  <span className="tnum font-medium">
+                    +{formatCurrency(carriedForward, currency)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-ink-500">Subtotal</span>
                 <span className="tnum font-medium">
                   {formatCurrency(totals.subtotal, currency)}
                 </span>
               </div>
+              {carriedForward > 0 && (
+                <p className="text-xs text-ink-400">
+                  Subtotal includes {formatCurrency(carriedForward, currency)} carried forward
+                  from a reversed payment last month (added by HR).
+                </p>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <label htmlFor="tax_rate" className="text-ink-500">
                   Tax rate (%)

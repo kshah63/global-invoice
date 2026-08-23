@@ -160,6 +160,11 @@ function FragmentRow({
                 Paid via {r.bundledInto}
               </Badge>
             )}
+            {r.status === "reversed" && (
+              <Badge className="bg-rose-50 text-rose-700 ring-rose-200">
+                Carried to next month
+              </Badge>
+            )}
           </div>
         </td>
         <td className="px-5 py-3 text-right tnum">
@@ -169,7 +174,9 @@ function FragmentRow({
           {r.tax != null ? formatCurrency(r.tax, r.currency) : "—"}
         </td>
         <td
-          className={`px-5 py-3 text-right font-medium tnum ${r.bundledInto ? "text-ink-400 line-through" : ""}`}
+          className={`px-5 py-3 text-right font-medium tnum ${
+            r.bundledInto || r.status === "reversed" ? "text-ink-400 line-through" : ""
+          }`}
         >
           {r.total != null ? formatCurrency(r.total, r.currency) : "—"}
         </td>

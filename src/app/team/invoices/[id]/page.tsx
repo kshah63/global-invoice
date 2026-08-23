@@ -21,6 +21,7 @@ import {
 import { InvoiceDocument } from "@/components/InvoiceDocument";
 import { RosterPayoutCard, type PayoutRow } from "@/components/team/RosterPayoutCard";
 import { BundledByHrCard } from "@/components/team/BundledByHrCard";
+import { CarriedForwardCard } from "@/components/team/CarriedForwardCard";
 import { InvoiceTabs } from "@/components/team/InvoiceTabs";
 import { deleteInvoice } from "@/actions/invoices";
 import type {
@@ -66,6 +67,9 @@ export default async function TeamInvoiceDetail({
 
   const items = (itemsRows as InvoiceLineItem[]) ?? [];
   const bundledLines = items.filter((i) => i.source_individual_invoice_id);
+  // Amounts HR carried into this invoice from a reversed payment last month.
+  const carriedLines = items.filter((i) => i.source_reversed_invoice_id);
+  const carriedForward = carriedLines.reduce((s, l) => s + Number(l.line_total), 0);
   const tm = tmRow as TeamMember | null;
   const isSupplier = tm?.member_type === "supplier";
   const editable = canTeamMemberEdit(invoice.status);
@@ -260,26 +264,43 @@ export default async function TeamInvoiceDetail({
           />
         </>
       ) : (
-        <InvoiceEditor
-          invoice={invoice}
-          initialItems={items}
-          rates={rates}
-          teamMember={{
-            name: tm?.name ?? invoice.display_name,
-            fixed_salary: tm?.fixed_salary ?? null,
-          }}
-        />
+        <>
+          {carriedLines.length > 0 && (
+            <CarriedForwardCard lines={carriedLines} currency={invoice.currency} />
+          )}
+          <InvoiceEditor
+            invoice={invoice}
+            initialItems={items.filter((i) => !i.source_reversed_invoice_id)}
+            rates={rates}
+            teamMember={{
+              name: tm?.name ?? invoice.display_name,
+              fixed_salary: tm?.fixed_salary ?? null,
+            }}
+            carriedForward={carriedForward}
+          />
+        </>
       )}
       {deleteDraft}
     </>
   ) : (
     <>
-      <Alert tone={invoice.status === "paid" ? "success" : "info"} className="mb-5">
+      <Alert
+        tone={
+          invoice.status === "paid"
+            ? "success"
+            : invoice.status === "reversed"
+              ? "warning"
+              : "info"
+        }
+        className="mb-5"
+      >
         {invoice.status === "paid"
           ? "This invoice has been paid."
-          : invoice.status === "approved"
-            ? "This invoice has been approved and is now final. Contact HR if something needs changing."
-            : "This invoice is locked by HR and can no longer be edited."}
+          : invoice.status === "reversed"
+            ? "This payment was reversed by the bank. The amount has been carried into your next month's invoice."
+            : invoice.status === "approved"
+              ? "This invoice has been approved and is now final. Contact HR if something needs changing."
+              : "This invoice is locked by HR and can no longer be edited."}
       </Alert>
       <div className="mb-4 flex justify-end">
         <Button href={`/print/invoice/${invoice.id}`} variant="neutral" size="sm">

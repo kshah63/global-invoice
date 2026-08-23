@@ -84,7 +84,9 @@ export default async function ReportsPage({
     const inv = invByMember.get(m.id);
     if (inv) {
       inUse.add(inv.currency);
-      if (!inv.bundled_into_invoice_id) {
+      // Bundled invoices are paid via their supplier; reversed invoices had their
+      // amount carried to next month. Both are excluded to avoid double-counting.
+      if (!inv.bundled_into_invoice_id && inv.status !== "reversed") {
         curTotals.set(inv.currency, (curTotals.get(inv.currency) ?? 0) + Number(inv.total));
       }
     }
