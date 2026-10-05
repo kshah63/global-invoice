@@ -167,10 +167,18 @@ export function InvoiceDocument({
                     )}
                   </td>
                   <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
-                    {fixed ? "—" : formatNumber(it.sessions)}
+                    {fixed
+                      ? Number(it.sessions) > 0
+                        ? formatNumber(it.sessions)
+                        : "—"
+                      : formatNumber(it.sessions)}
                   </td>
                   <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
-                    {fixed ? "—" : formatNumber(it.hours)}
+                    {fixed
+                      ? Number(it.hours) > 0
+                        ? formatNumber(it.hours)
+                        : "—"
+                      : formatNumber(it.hours)}
                   </td>
                   <td className="whitespace-nowrap py-1.5 pr-2 text-right tnum">
                     {formatCurrency(it.rate_amount, currency)}
