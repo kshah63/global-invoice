@@ -96,6 +96,9 @@ export function MemberInvoiceEditor({
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Set when a submit is blocked because a teacher left sessions/hours empty,
+  // so those fields highlight until filled.
+  const [showSessionErrors, setShowSessionErrors] = useState(false);
 
   const baseTotal = isRate
     ? rates.reduce((sum, r) => sum + (Number(r.amount) || 0) * (Number(qtys[r.id]) || 0), 0)
@@ -172,9 +175,11 @@ export function MemberInvoiceEditor({
   }
   async function onSubmit() {
     if (logSessions && (!(Number(fixedSessions) > 0) || !(Number(fixedHours) > 0))) {
-      setError("Enter the sessions and hours you worked this month before confirming.");
+      setShowSessionErrors(true);
+      setError("Please fill in your session / hour count before confirming.");
       return;
     }
+    setShowSessionErrors(false);
     setBusy("submit");
     if (await doSave()) {
       const res = await submitMemberInvoice(invoice.id);
@@ -274,6 +279,12 @@ export function MemberInvoiceEditor({
                     min="0"
                     step="0.5"
                     value={fixedSessions}
+                    className={
+                      showSessionErrors && !(Number(fixedSessions) > 0)
+                        ? "!border-red-400 !bg-red-50"
+                        : undefined
+                    }
+                    aria-invalid={(showSessionErrors && !(Number(fixedSessions) > 0)) || undefined}
                     onChange={(e) => setFixedSessions(e.target.value)}
                   />
                 </div>
@@ -286,9 +297,21 @@ export function MemberInvoiceEditor({
                     min="0"
                     step="0.25"
                     value={fixedHours}
+                    className={
+                      showSessionErrors && !(Number(fixedHours) > 0)
+                        ? "!border-red-400 !bg-red-50"
+                        : undefined
+                    }
+                    aria-invalid={(showSessionErrors && !(Number(fixedHours) > 0)) || undefined}
                     onChange={(e) => setFixedHours(e.target.value)}
                   />
                 </div>
+                {showSessionErrors &&
+                  (!(Number(fixedSessions) > 0) || !(Number(fixedHours) > 0)) && (
+                    <p className="text-xs font-medium text-red-600 sm:col-span-2">
+                      Please fill in your session / hour count.
+                    </p>
+                  )}
                 <p className="text-xs text-ink-400 sm:col-span-2">
                   Required for our records (cross-checked against the teaching tracker). This
                   doesn&apos;t change your salary.

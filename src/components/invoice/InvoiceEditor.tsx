@@ -89,6 +89,9 @@ export function InvoiceEditor({
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Set when a submit is blocked by a fixed-salary line missing sessions/hours,
+  // so those specific fields highlight until filled.
+  const [showFixedErrors, setShowFixedErrors] = useState(false);
 
   function rowTotal(r: Row): number {
     if (r.task === ADJUSTMENT_TASK) {
@@ -305,11 +308,13 @@ export function InvoiceEditor({
         isFixedSalaryTask(r.task) && (!(Number(r.sessions) > 0) || !(Number(r.hours) > 0))
     );
     if (badFixed) {
+      setShowFixedErrors(true);
       setError(
-        "Fixed-salary lines need both sessions and hours (for the teaching-tracker cross-check)."
+        "Please fill in your session / hour count on the highlighted fixed-salary line before submitting."
       );
       return;
     }
+    setShowFixedErrors(false);
     setBusy("submit");
     const saved = await doSave();
     if (!saved) {
@@ -399,6 +404,8 @@ export function InvoiceEditor({
             const fixed = isFixedSalaryTask(row.task);
             const isAdjustment = row.task === ADJUSTMENT_TASK;
             const total = lineTotals[i];
+            const sessMissing = showFixedErrors && fixed && !(Number(row.sessions) > 0);
+            const hoursMissing = showFixedErrors && fixed && !(Number(row.hours) > 0);
             return (
               <div
                 key={row.key}
@@ -551,6 +558,8 @@ export function InvoiceEditor({
                       step="0.5"
                       inputMode="decimal"
                       value={row.sessions}
+                      className={sessMissing ? "!border-red-400 !bg-red-50" : undefined}
+                      aria-invalid={sessMissing || undefined}
                       onChange={(e) =>
                         patchRow(row.key, { sessions: e.target.value })
                       }
@@ -566,6 +575,8 @@ export function InvoiceEditor({
                       step="0.25"
                       inputMode="decimal"
                       value={row.hours}
+                      className={hoursMissing ? "!border-red-400 !bg-red-50" : undefined}
+                      aria-invalid={hoursMissing || undefined}
                       onChange={(e) => patchRow(row.key, { hours: e.target.value })}
                     />
                   </div>
@@ -576,6 +587,11 @@ export function InvoiceEditor({
                     </div>
                   </div>
                 </div>
+                {(sessMissing || hoursMissing) && (
+                  <p className="mt-1 text-xs font-medium text-red-600">
+                    Please fill in your session / hour count.
+                  </p>
+                )}
 
                 <div className="mt-3">
                   <Field label="Note">
