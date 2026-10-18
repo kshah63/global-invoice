@@ -55,6 +55,13 @@ export function TimesheetForm({
   const [memberId, setMemberId] = useState(initial?.memberId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isTeaching = task === "teaching";
+
+  function changeTask(next: TimesheetTask) {
+    setTask(next);
+    // Only teaching tracks sessions; clear it for other tasks.
+    if (next !== "teaching") setSessions("");
+  }
 
   async function submit() {
     setError(null);
@@ -66,8 +73,14 @@ export function TimesheetForm({
       setError("Choose an in-charge to verify this.");
       return;
     }
-    if (!(Number(sessions) > 0) && !(Number(hours) > 0)) {
-      setError("Enter a number of sessions or hours.");
+    // Hours drive pay, so they're always required. Teaching also needs sessions;
+    // other tasks don't track sessions at all.
+    if (!(Number(hours) > 0)) {
+      setError("Enter the number of hours.");
+      return;
+    }
+    if (isTeaching && !(Number(sessions) > 0)) {
+      setError("Teaching needs a number of sessions.");
       return;
     }
     setBusy(true);
@@ -76,7 +89,7 @@ export function TimesheetForm({
       business,
       task,
       description: description.trim() || null,
-      sessions: Number(sessions) || 0,
+      sessions: isTeaching ? Number(sessions) || 0 : 0,
       hours: Number(hours) || 0,
       inchargeId: inchargers ? inchargeId || null : null,
       memberId: members ? memberId || null : null,
@@ -123,7 +136,7 @@ export function TimesheetForm({
           </Select>
         </Field>
         <Field label="Task" required>
-          <Select value={task} onChange={(e) => setTask(e.target.value as TimesheetTask)}>
+          <Select value={task} onChange={(e) => changeTask(e.target.value as TimesheetTask)}>
             {TIMESHEET_TASKS.map((t) => (
               <option key={t} value={t}>
                 {TIMESHEET_TASK_LABELS[t]}
@@ -141,17 +154,23 @@ export function TimesheetForm({
           </Field>
         </div>
         <div>
-          <Label>Sessions</Label>
+          <Label>
+            Sessions{isTeaching && <span className="text-red-500"> *</span>}
+          </Label>
           <Input
             type="number"
             min="0"
             step="0.5"
-            value={sessions}
+            value={isTeaching ? sessions : ""}
+            disabled={!isTeaching}
+            placeholder={isTeaching ? undefined : "N/A"}
             onChange={(e) => setSessions(e.target.value)}
           />
         </div>
         <div>
-          <Label>Hours</Label>
+          <Label>
+            Hours <span className="text-red-500">*</span>
+          </Label>
           <Input
             type="number"
             min="0"
