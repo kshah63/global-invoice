@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/AppShell";
 import { Card, CardBody } from "@/components/ui/Card";
 import { DeptHeadForm } from "@/components/hr/DeptHeadForm";
 
-export const metadata = { title: "Add Department Head" };
+export const metadata = { title: "Add In-charge" };
 
 export default async function NewDepartmentHead() {
   await requireRole("hr");
@@ -16,7 +16,7 @@ export default async function NewDepartmentHead() {
         </Link>
       </div>
       <PageHeader
-        title="Add department head"
+        title="Add in-charge"
         description="Creates their login. They sign in with their Login ID (or email) and submit session/hour cross-checks."
       />
       <Card>

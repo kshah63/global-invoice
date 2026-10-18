@@ -339,19 +339,19 @@ export function PeopleDirectory({
         </CardBody>
       </Card>
 
-      {/* Department heads */}
+      {/* In-charges */}
       <Card className="mt-8">
         <CardHeader
-          title="Department heads"
+          title="In-charges"
           description={`${filteredHeads.length} of ${deptHeads.length} — they submit cross-checks and sign in with their Login ID.`}
         />
         <CardBody className={filteredHeads.length === 0 ? undefined : "p-0"}>
           {filteredHeads.length === 0 ? (
             <EmptyState
-              title="No matching department heads"
+              title="No matching in-charges"
               description={
                 deptHeads.length === 0
-                  ? "Use “Add department head” at the top to add one."
+                  ? "Use “Add in-charge” at the top to add one."
                   : "Try a different search."
               }
             />

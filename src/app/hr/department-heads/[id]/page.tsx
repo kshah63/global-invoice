@@ -12,7 +12,7 @@ import { deleteDepartmentHead } from "@/actions/settings";
 import { CENTRES, type Centre } from "@/lib/constants";
 import type { Profile } from "@/lib/types";
 
-export const metadata = { title: "Edit Department Head" };
+export const metadata = { title: "Edit In-charge" };
 
 export default async function EditDeptHead({
   params,
@@ -44,7 +44,7 @@ export default async function EditDeptHead({
         </Link>
       </div>
       <PageHeader
-        title={dh.full_name ?? "Department head"}
+        title={dh.full_name ?? "In-charge"}
         description={dh.login_code ? `Login ID ${dh.login_code}` : undefined}
       />
       <Flash ok={searchParams.ok} error={searchParams.error} />
@@ -68,7 +68,7 @@ export default async function EditDeptHead({
       <Card className="mt-8 border-red-100">
         <CardHeader
           title="Danger zone"
-          description="Removing a department head deletes their login and their cross-checks."
+          description="Removing an in-charge deletes their login and their cross-checks."
         />
         <CardBody>
           <form action={deleteDepartmentHead} className="flex items-center justify-between gap-3">
@@ -77,9 +77,9 @@ export default async function EditDeptHead({
             <SubmitButton
               variant="danger"
               size="sm"
-              confirm={`Permanently delete ${dh.full_name ?? "this department head"}?`}
+              confirm={`Permanently delete ${dh.full_name ?? "this in-charge"}?`}
             >
-              Delete department head
+              Delete in-charge
             </SubmitButton>
           </form>
         </CardBody>

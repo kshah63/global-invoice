@@ -14,7 +14,7 @@ export type Role = (typeof ROLES)[number];
 export const ROLE_LABELS: Record<Role, string> = {
   hr: "HR",
   team_member: "Team Member",
-  department_head: "Department Head",
+  department_head: "In-charge",
   supplier_member: "Supplier Member",
 };
 

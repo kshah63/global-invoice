@@ -51,7 +51,7 @@ export default async function HrChecksPage() {
 
   const authorName = new Map<string, string>();
   ((authorRows as Pick<Profile, "id" | "full_name" | "email">[]) ?? []).forEach((p) =>
-    authorName.set(p.id, p.full_name ?? p.email ?? "Department head")
+    authorName.set(p.id, p.full_name ?? p.email ?? "In-charge")
   );
   const memberName = new Map<string, string>();
   ((memberRows as Pick<TeamMember, "id" | "name" | "employee_id">[]) ?? []).forEach((m) =>
@@ -84,7 +84,7 @@ export default async function HrChecksPage() {
     <>
       <PageHeader
         title="Cross-checks"
-        description="Sessions and hours reported by department heads. Open the matching invoice to compare line by line."
+        description="Sessions and hours reported by in-charges. Open the matching invoice to compare line by line."
       />
 
       {checks.length === 0 ? (
@@ -92,7 +92,7 @@ export default async function HrChecksPage() {
           <CardBody>
             <EmptyState
               title="No cross-checks yet"
-              description="Department heads submit these for a month once you open it. They'll appear here as they come in."
+              description="In-charges submit these for a month once you open it. They'll appear here as they come in."
             />
           </CardBody>
         </Card>
@@ -118,7 +118,7 @@ export default async function HrChecksPage() {
                     <Card key={c.id}>
                       <CardHeader
                         title={memberName.get(c.team_member_id) ?? "Team member"}
-                        description={`Submitted by ${authorName.get(c.created_by) ?? "Department head"} · ${formatDateTime(c.updated_at)}`}
+                        description={`Submitted by ${authorName.get(c.created_by) ?? "In-charge"} · ${formatDateTime(c.updated_at)}`}
                         action={
                           <Badge className="bg-brand-50 text-brand-700 ring-brand-200">
                             {c.business}

@@ -242,5 +242,5 @@ export async function deleteDepartmentHead(formData: FormData) {
   const admin = createAdminClient();
   await admin.auth.admin.deleteUser(profileId);
   revalidatePath("/hr/team-members");
-  redirect(`/hr/team-members?ok=${encodeURIComponent("Department head removed.")}`);
+  redirect(`/hr/team-members?ok=${encodeURIComponent("In-charge removed.")}`);
 }

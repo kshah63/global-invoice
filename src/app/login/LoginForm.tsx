@@ -36,7 +36,7 @@ export function LoginForm({ next }: { next?: string }) {
       <Field
         label="Login ID or email"
         htmlFor="identifier"
-        hint="Team members & department heads: use your ID. HR: use your email."
+        hint="Team members & in-charges: use your ID. HR: use your email."
       >
         <Input
           id="identifier"

@@ -73,7 +73,7 @@ export default async function DeptOverview({
       {profile.business && (
         <div className="mb-6">
           <Badge className="bg-brand-50 text-brand-700 ring-brand-200">
-            Department head · {profile.business}
+            In-charge · {profile.business}
           </Badge>
         </div>
       )}

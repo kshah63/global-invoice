@@ -79,7 +79,7 @@ export default async function PeoplePage({
       <Flash ok={searchParams.ok} error={searchParams.error} />
       <PageHeader
         title="People"
-        description="Individuals, suppliers and department heads."
+        description="Individuals, suppliers and in-charges."
         action={
           <div className="flex flex-wrap gap-2">
             <Button href="/hr/team-members/new">Add individual</Button>
@@ -87,7 +87,7 @@ export default async function PeoplePage({
               Add supplier
             </Button>
             <Button href="/hr/department-heads/new" variant="neutral">
-              Add department head
+              Add in-charge
             </Button>
           </div>
         }

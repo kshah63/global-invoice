@@ -214,7 +214,7 @@ export default async function HrInvoiceDetail({
       .select("id, full_name")
       .in("id", authorIds);
     (profs as Pick<Profile, "id" | "full_name">[] | null)?.forEach((p) =>
-      authorName.set(p.id, p.full_name ?? "Department Head")
+      authorName.set(p.id, p.full_name ?? "In-charge")
     );
   }
 
@@ -375,8 +375,8 @@ export default async function HrInvoiceDetail({
       {checks.length > 0 && (
         <Card className="mb-6">
           <CardHeader
-            title="Department head cross-check"
-            description="Compare the invoice against sessions/hours reported by department heads."
+            title="In-charge cross-check"
+            description="Compare the invoice against sessions/hours reported by in-charges."
           />
           <CardBody className="space-y-4">
             <div className="overflow-x-auto">
@@ -426,7 +426,7 @@ export default async function HrInvoiceDetail({
                 <div key={c.id}>
                   Submitted by{" "}
                   <span className="font-medium text-ink-700">
-                    {authorName.get(c.created_by) ?? "Department Head"}
+                    {authorName.get(c.created_by) ?? "In-charge"}
                   </span>{" "}
                   · {c.business}
                   {c.notes ? ` · “${c.notes}”` : ""}

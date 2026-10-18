@@ -50,7 +50,7 @@ export function DeptHeadForm() {
       return;
     }
     router.push(
-      `/hr/team-members?ok=${encodeURIComponent(`${name} added as a department head (Login ID ${loginCode.trim()}).`)}`
+      `/hr/team-members?ok=${encodeURIComponent(`${name} added as an in-charge (Login ID ${loginCode.trim()}).`)}`
     );
   }
 
@@ -110,7 +110,7 @@ export function DeptHeadForm() {
       </div>
       <div className="flex items-center gap-3">
         <Button type="submit" loading={saving}>
-          Add department head
+          Add in-charge
         </Button>
         <Button href="/hr/team-members" variant="ghost">
           Cancel
