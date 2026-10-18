@@ -28,6 +28,7 @@ export default async function HrLayout({
     { href: "/hr/team-members", label: "People" },
     { href: "/hr/invoices", label: "Invoices" },
     { href: "/hr/checks", label: "Cross-checks" },
+    { href: "/hr/timesheet", label: "Timesheets" },
     { href: "/hr/periods", label: "Periods" },
     { href: "/hr/inbox", label: "Inbox", badge: hasUnread },
     { href: "/hr/messages", label: "Broadcast" },

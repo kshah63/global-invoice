@@ -8,6 +8,8 @@ import type {
   RateUnit,
   Role,
   TaskType,
+  TimesheetStatus,
+  TimesheetTask,
 } from "./constants";
 
 /**
@@ -298,4 +300,37 @@ export interface InvoiceWithItems extends Invoice {
 
 export interface DeptHeadCheckWithItems extends DeptHeadCheck {
   items: DeptHeadCheckItem[];
+}
+
+// --- Timesheets -----------------------------------------------------------
+
+export interface TimesheetEntry {
+  id: string;
+  team_member_id: string;
+  entry_date: string;
+  business: Centre;
+  task: TimesheetTask;
+  description: string | null;
+  sessions: number;
+  hours: number;
+  incharge_id: string | null;
+  status: TimesheetStatus;
+  created_by: string | null;
+  created_by_incharge: boolean;
+  return_note: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimesheetInput {
+  date: string;
+  business: Centre;
+  task: TimesheetTask;
+  description: string | null;
+  sessions: number;
+  hours: number;
+  inchargeId: string | null;
+  memberId: string | null;
 }

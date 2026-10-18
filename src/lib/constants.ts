@@ -130,6 +130,44 @@ export const ROSTER_ROLE_LABELS: Record<RosterRole, string> = {
   manager: "Manager",
 };
 
+// --- Timesheets ----------------------------------------------------------
+
+export const TIMESHEET_TASKS = [
+  "teaching",
+  "teacher_training",
+  "material_creation",
+  "other_support",
+] as const;
+export type TimesheetTask = (typeof TIMESHEET_TASKS)[number];
+
+export const TIMESHEET_TASK_LABELS: Record<TimesheetTask, string> = {
+  teaching: "Teaching",
+  teacher_training: "Teacher Training",
+  material_creation: "Material Creation",
+  other_support: "Other Support",
+};
+
+export const TIMESHEET_STATUSES = [
+  "pending_review",
+  "pending_acceptance",
+  "verified",
+  "returned",
+] as const;
+export type TimesheetStatus = (typeof TIMESHEET_STATUSES)[number];
+
+export const TIMESHEET_STATUS_META: Record<
+  TimesheetStatus,
+  { label: string; badge: string }
+> = {
+  pending_review: { label: "Pending review", badge: "bg-brand-50 text-brand-700 ring-brand-200" },
+  pending_acceptance: { label: "To accept", badge: "bg-gold-50 text-gold-800 ring-gold-200" },
+  verified: { label: "Verified", badge: "bg-teal-50 text-teal-700 ring-teal-200" },
+  returned: { label: "Returned", badge: "bg-rose-50 text-rose-700 ring-rose-200" },
+};
+
+/** Timesheet is gated to these login IDs while in testing (widen later). */
+export const TIMESHEET_TEST_LOGIN_IDS = ["9999", "9876"];
+
 // --- Roster member pay type (fixed salary vs a session/hour rate) ----------
 
 export const PAY_TYPES = ["fixed", "rate"] as const;
