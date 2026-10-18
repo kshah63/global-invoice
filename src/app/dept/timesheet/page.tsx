@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { timesheetEnabled } from "@/lib/timesheet";
 import { TIMESHEET_TEST_LOGIN_IDS } from "@/lib/constants";
 import { PageHeader } from "@/components/AppShell";
@@ -15,19 +16,33 @@ export default async function DeptTimesheetPage() {
   if (!(await timesheetEnabled(session))) redirect("/dept");
 
   const supabase = createClient();
-  const [{ data: entryRows }, { data: memberRows }] = await Promise.all([
-    supabase.from("timesheet_entries").select("*").order("entry_date", { ascending: false }),
-    supabase.rpc("list_team_members_for_dept"),
+  const { data: entryRows } = await supabase
+    .from("timesheet_entries")
+    .select("*")
+    .order("entry_date", { ascending: false });
+  const entries = (entryRows as TimesheetEntry[]) ?? [];
+
+  // Resolve member names + the "add for a member" picker with the admin client
+  // (names only). This is independent of the active flag and RLS, so a test
+  // member always resolves and shows up in the picker.
+  const admin = createAdminClient();
+  const memberIds = [...new Set(entries.map((e) => e.team_member_id))];
+  const [{ data: nameRows }, { data: pickRows }] = await Promise.all([
+    memberIds.length
+      ? admin.from("team_members").select("id, name").in("id", memberIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    admin.from("team_members").select("id, name").in("employee_id", TIMESHEET_TEST_LOGIN_IDS),
   ]);
 
-  const allMembers = (memberRows as { id: string; name: string; employee_id: string | null }[]) ?? [];
-  // While in testing the "add for a member" picker is limited to the test member.
-  const members = allMembers
-    .filter((m) => TIMESHEET_TEST_LOGIN_IDS.includes(m.employee_id ?? ""))
-    .map((m) => ({ id: m.id, name: m.name }));
-  const memberNameById = new Map(allMembers.map((m) => [m.id, m.name]));
+  const memberNameById = new Map(
+    ((nameRows as { id: string; name: string }[]) ?? []).map((m) => [m.id, m.name])
+  );
+  const members = ((pickRows as { id: string; name: string }[]) ?? []).map((m) => ({
+    id: m.id,
+    name: m.name,
+  }));
 
-  const rows: TimesheetRowView[] = ((entryRows as TimesheetEntry[]) ?? []).map((e) => ({
+  const rows: TimesheetRowView[] = entries.map((e) => ({
     id: e.id,
     date: e.entry_date,
     business: e.business,
