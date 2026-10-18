@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -80,6 +80,7 @@ export function ReportTable({ rows }: { rows: ReportRow[] }) {
                   <th className="px-5 py-3 text-right font-semibold">Subtotal</th>
                   <th className="px-5 py-3 text-right font-semibold">Tax</th>
                   <th className="px-5 py-3 text-right font-semibold">Total</th>
+                  <th className="no-print px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
@@ -130,6 +131,10 @@ function FragmentRow({
   onToggle: () => void;
   nameEl: React.ReactNode;
 }) {
+  // Only real payees get a copy button: not the struck-through rows (bundled into
+  // a supplier, or reversed/carried forward), and only when there's a total.
+  const showCopy =
+    r.total != null && !r.bundledInto && r.status !== "reversed";
   return (
     <>
       <tr
@@ -180,10 +185,13 @@ function FragmentRow({
         >
           {r.total != null ? formatCurrency(r.total, r.currency) : "—"}
         </td>
+        <td className="no-print px-3 py-3 text-right">
+          {showCopy && <CopyMenu name={r.name} total={r.total!} />}
+        </td>
       </tr>
       {expandable && isOpen && (
         <tr className="bg-ink-50/60">
-          <td colSpan={6} className="px-5 py-3">
+          <td colSpan={7} className="px-5 py-3">
             <div className="overflow-x-auto rounded-xl border border-ink-100 bg-white">
               <table className="w-full text-sm">
                 <thead>
@@ -218,5 +226,71 @@ function FragmentRow({
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * Per-row copy control for bank transfers. Click "Copy" to reveal "Name" and
+ * "Total"; picking one writes it to the clipboard. The total is copied as a
+ * plain number (e.g. 1234.00) so it pastes cleanly into a bank amount field.
+ * Rendered inline (no absolute dropdown) so it's never clipped by the table's
+ * horizontal scroll container, and no-print so it stays off the printout.
+ */
+function CopyMenu({ name, total }: { name: string; total: number }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<null | "name" | "total">(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  async function copy(kind: "name" | "total") {
+    const text = kind === "name" ? name : total.toFixed(2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1400);
+    } catch {
+      // Clipboard unavailable (e.g. an insecure context) — nothing to do.
+    }
+    setOpen(false);
+  }
+
+  const btn =
+    "rounded-lg border border-ink-200 px-2 py-1 text-xs font-medium hover:bg-ink-50";
+
+  return (
+    <div
+      ref={ref}
+      className="inline-flex items-center justify-end gap-1"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {open ? (
+        <>
+          <button type="button" className={`${btn} text-ink-700`} onClick={() => copy("name")}>
+            Name
+          </button>
+          <button type="button" className={`${btn} text-ink-700`} onClick={() => copy("total")}>
+            Total
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className={`${btn} ${
+            copied ? "border-teal-200 bg-teal-50 text-teal-700" : "text-ink-600"
+          }`}
+          onClick={() => setOpen(true)}
+        >
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      )}
+    </div>
   );
 }
