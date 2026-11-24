@@ -17,21 +17,26 @@ export function AppShell({
   displayName,
   home,
   nav,
+  switcher,
   children,
 }: {
   role: Role;
   displayName: string;
   home: string;
   nav: NavItem[];
+  switcher?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen">
       <header className="no-print sticky top-0 z-30 bg-white/85 shadow-[0_1px_0_rgba(22,28,37,0.04)] backdrop-blur">
         <div className="app-container flex h-16 items-center justify-between gap-4">
-          <Link href={home} className="rounded-lg">
-            <BrandWordmark />
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href={home} className="rounded-lg">
+              <BrandWordmark />
+            </Link>
+            {switcher}
+          </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium leading-tight text-ink-800">

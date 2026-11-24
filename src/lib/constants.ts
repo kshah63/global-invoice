@@ -20,7 +20,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 /** Home route per role — used for post-login routing. */
 export const ROLE_HOME: Record<Role, string> = {
-  hr: "/hr",
+  hr: "/hub",
   team_member: "/team",
   department_head: "/dept",
   supplier_member: "/member",

@@ -1,6 +1,7 @@
 import { AppShell, type NavItem } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { AreaSwitcher } from "@/components/AreaSwitcher";
 
 export default async function HrLayout({
   children,
@@ -37,7 +38,13 @@ export default async function HrLayout({
   ];
 
   return (
-    <AppShell role="hr" displayName={profile.full_name ?? profile.email} home="/hr" nav={nav}>
+    <AppShell
+      role="hr"
+      displayName={profile.full_name ?? profile.email}
+      home="/hub"
+      nav={nav}
+      switcher={<AreaSwitcher active="global" />}
+    >
       {children}
     </AppShell>
   );
