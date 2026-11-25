@@ -10,7 +10,7 @@ export function AreaSwitcher({ active }: { active: "global" | "recruitment" }) {
   const off = "text-ink-600 hover:bg-ink-100";
   return (
     <div className="inline-flex rounded-xl border border-ink-200 bg-white p-0.5">
-      <Link href="/hr" className={`${base} ${active === "global" ? on : off}`}>
+      <Link href="/global-online" className={`${base} ${active === "global" ? on : off}`}>
         Global Online
       </Link>
       <Link href="/recruitment" className={`${base} ${active === "recruitment" ? on : off}`}>

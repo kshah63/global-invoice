@@ -2,6 +2,8 @@ import { AppShell, type NavItem } from "@/components/AppShell";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AreaSwitcher } from "@/components/AreaSwitcher";
+import { globalOnlineUnlocked } from "@/lib/gate";
+import { redirect } from "next/navigation";
 
 export default async function HrLayout({
   children,
@@ -9,6 +11,8 @@ export default async function HrLayout({
   children: React.ReactNode;
 }) {
   const { profile } = await requireRole("hr");
+  // Temporary shared-password gate for the invoicing section.
+  if (!globalOnlineUnlocked()) redirect("/global-online");
   const supabase = createClient();
 
   // Unread = any conversation whose latest message is from the participant and

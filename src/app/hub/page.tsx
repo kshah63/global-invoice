@@ -43,7 +43,7 @@ export default async function HubPage() {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <Link
-              href="/hr"
+              href="/global-online"
               className="group rounded-2xl border border-ink-200 bg-white p-6 shadow-sm transition hover:border-brand-300 hover:shadow-md"
             >
               <div className="text-lg font-semibold text-ink-900 group-hover:text-brand-700">
