@@ -114,6 +114,16 @@ export function FormEditor({
       });
       if (res.ok) {
         setStatus({ kind: "ok", msg: "Saved." });
+        // If we didn't have a share link yet (row freshly created), pick it up.
+        if (!slug) {
+          try {
+            const g = await fetch("/recruitment/api/form");
+            const gb = await g.json();
+            if (gb?.form?.slug) setSlug(gb.form.slug);
+          } catch {
+            /* ignore */
+          }
+        }
       } else {
         const body = await res.json().catch(() => null);
         setStatus({ kind: "err", msg: body?.error || "Save failed." });
@@ -158,27 +168,38 @@ export function FormEditor({
             <input
               readOnly
               value={shareLink}
-              className="min-w-0 flex-1 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-700"
+              placeholder="No link yet — click Save form to generate one"
+              className="min-w-0 flex-1 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-sm text-ink-700 placeholder:text-ink-400"
             />
             <button
               onClick={copyLink}
               type="button"
-              className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              disabled={!shareLink}
+              className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
             <button
               onClick={rotateSlug}
               type="button"
-              className="rounded-lg border border-ink-200 px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50"
+              disabled={!shareLink}
+              className="rounded-lg border border-ink-200 px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50 disabled:opacity-50"
             >
               Regenerate
             </button>
           </div>
-          {!enabled && (
+          {!shareLink ? (
             <p className="mt-2 text-xs text-gold-700">
-              While off, the link shows “not available” to anyone who opens it.
+              No share link yet. If this is the first time here, make sure migration
+              0038 has been run in Supabase, then click <strong>Save form</strong> —
+              the link will appear here.
             </p>
+          ) : (
+            !enabled && (
+              <p className="mt-2 text-xs text-gold-700">
+                While off, the link shows “not available” to anyone who opens it.
+              </p>
+            )
           )}
         </section>
 
