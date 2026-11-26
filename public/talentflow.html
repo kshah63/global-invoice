@@ -1,0 +1,3086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TalentFlow HR — Candidate Interview Pipeline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom thin scrollbars for columns */
+    .thin-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .thin-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .drag-over {
+      background-color: #eff6ff !important;
+      border-color: #3b82f6 !important;
+      border-style: dashed !important;
+    }
+    .dragging-card {
+      opacity: 0.45;
+      transform: scale(0.98);
+    }
+    @keyframes supremeHrBlink {
+      0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45);
+      }
+      50% {
+        opacity: 0.45;
+        box-shadow: 0 0 6px 1px rgba(124, 58, 237, 0.25);
+      }
+    }
+    .supreme-hr-blink {
+      animation: supremeHrBlink 1.8s ease-in-out infinite;
+    }
+    @keyframes wpEpUrgentBlink {
+      0%, 100% {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.45), 0 0 12px rgba(239, 68, 68, 0.35);
+      }
+      50% {
+        border-color: rgba(239, 68, 68, 0.25);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+    .wp-ep-urgent-blink {
+      border-width: 2px !important;
+      animation: wpEpUrgentBlink 1.1s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col select-none">
+
+  <!-- TOP NAVIGATION & KPI HEADER -->
+  <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20">
+    <!-- Left: Brand & View Switcher -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+          TF
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-slate-900 leading-tight">TalentFlow HR</h1>
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span id="syncIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span id="syncIndicatorText">Connecting…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- View Switcher -->
+      <div class="bg-slate-100 p-0.5 rounded-lg flex items-center border border-slate-200 ml-2">
+        <button id="tabBoardBtn" onclick="switchView('board')" class="px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-700 shadow-xs transition">
+          Pipeline Board
+        </button>
+        <button id="tabScheduleBtn" onclick="switchView('schedule')" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+          <span>Who is Coming When</span>
+          <span id="upcomingBadge" class="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full text-[10px] font-bold">0</span>
+        </button>
+        <button id="tabStage2Btn" onclick="switchView('stage2')" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+          <span>Stage 2 Summary</span>
+          <span id="stage2Badge" class="bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded-full text-[10px] font-bold">0</span>
+        </button>
+        <button id="tabArchiveBtn" onclick="switchView('archive')" class="px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5">
+          <span>Archive</span>
+          <span id="archiveBadge" class="bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px] font-bold">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center: Compact Live KPIs & Pass Color Legend -->
+    <div class="hidden lg:flex items-center gap-3 text-xs">
+      <div class="flex items-center gap-0.5 text-[10px] bg-white border border-slate-200 px-1 py-0.5 rounded-md" title="Click to filter by Visa / Pass status (click again to clear)">
+        <button type="button" id="passPill-citizen" onclick="togglePassFilter('citizen')" class="flex items-center gap-1 px-1.5 py-0.5 rounded transition text-rose-800 font-semibold hover:bg-rose-50">
+          <span class="inline-block w-2 h-2 rounded-full bg-rose-400"></span><span>Citizen</span>
+        </button>
+        <button type="button" id="passPill-pr" onclick="togglePassFilter('pr')" class="flex items-center gap-1 px-1.5 py-0.5 rounded transition text-blue-800 font-semibold hover:bg-blue-50">
+          <span class="inline-block w-2 h-2 rounded-full bg-blue-400"></span><span>PR</span>
+        </button>
+        <button type="button" id="passPill-student" onclick="togglePassFilter('student')" class="flex items-center gap-1 px-1.5 py-0.5 rounded transition text-emerald-800 font-semibold hover:bg-emerald-50">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span><span>Student Pass</span>
+        </button>
+        <button type="button" id="passPill-loc" onclick="togglePassFilter('loc')" class="flex items-center gap-1 px-1.5 py-0.5 rounded transition text-amber-800 font-semibold hover:bg-amber-50">
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span><span>LOC/Pre-LOC</span>
+        </button>
+        <button type="button" id="passPill-others" onclick="togglePassFilter('others')" class="flex items-center gap-1 px-1.5 py-0.5 rounded transition text-slate-700 font-semibold hover:bg-slate-100">
+          <span class="inline-block w-2 h-2 rounded-full bg-slate-400"></span><span>Others</span>
+        </button>
+      </div>
+      <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+        <span class="text-slate-500">Total:</span>
+        <span id="kpiTotal" class="font-bold text-slate-900">0</span>
+      </div>
+      <div class="flex items-center gap-1.5 bg-amber-50/70 px-2.5 py-1 rounded-md border border-amber-200/70">
+        <span class="text-amber-700">Test / Retest:</span>
+        <span id="kpiTesting" class="font-bold text-amber-800">0</span>
+      </div>
+      <div class="flex items-center gap-1.5 bg-blue-50/70 px-2.5 py-1 rounded-md border border-blue-200/70">
+        <span class="text-blue-700">Offered:</span>
+        <span id="kpiOffered" class="font-bold text-blue-800">0</span>
+      </div>
+      <div class="flex items-center gap-1.5 bg-emerald-50/70 px-2.5 py-1 rounded-md border border-emerald-200/70">
+        <span class="text-emerald-700">Joined:</span>
+        <span id="kpiJoined" class="font-bold text-emerald-800">0</span>
+      </div>
+    </div>
+
+    <!-- Right: Search, Filters & Actions -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="relative">
+        <input type="text" id="searchInput" oninput="renderAll()" placeholder="Search name, phone, qual..." class="pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white w-44 transition" />
+        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+
+      <select id="typeFilter" onchange="renderAll()" class="py-1.5 px-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700">
+        <option value="all">All Types / Sources</option>
+        <option value="Full-Time">Full-time</option>
+        <option value="Part-Time">Part-time</option>
+        <option value="Weekend Staff">Weekend staff</option>
+        <option value="Supreme HR">Supreme HR</option>
+      </select>
+
+      <button onclick="openSheetSyncModal()" class="px-2.5 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1" title="Connect Google Form / Google Sheet">
+        <span>⚡ Auto-Sync Form</span>
+        <span id="autoSyncDot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+      </button>
+
+      <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <select id="csvSourceSelect" title="Label imported CSV rows" class="py-1.5 px-1.5 text-xs bg-slate-50 text-slate-700 border-r border-slate-200 focus:outline-none">
+          <option value="auto">Auto Tag</option>
+          <option value="Main Form">Main Form</option>
+          <option value="Supreme HR">Supreme HR</option>
+          <option value="A-levels">A-levels</option>
+        </select>
+        <label class="px-2.5 py-1.5 text-xs font-medium bg-white text-slate-700 hover:bg-slate-50 cursor-pointer transition">
+          Import CSV
+          <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleCsvImport(event)" />
+        </label>
+      </div>
+
+      <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <button onclick="exportBackupJson()" class="px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 border-r border-slate-200" title="Download JSON Backup">Backup</button>
+        <label class="px-2 py-1.5 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer" title="Restore JSON Backup">
+          Restore
+          <input type="file" accept=".json" class="hidden" onchange="importBackupJson(event)" />
+        </label>
+      </div>
+
+      <button onclick="openCandidateModal()" class="px-3 py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs transition flex items-center gap-1">
+        <span>+ Add Candidate</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 overflow-hidden relative">
+
+    <!-- VIEW 1: 7-STAGE KANBAN BOARD (Full Viewport Fit) -->
+    <div id="boardView" class="h-full p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 overflow-y-auto xl:overflow-hidden">
+      <!-- Columns injected dynamically by JS -->
+    </div>
+
+    <!-- VIEW 4: STAGE 2 DAILY BOSS SUMMARY PAGE -->
+    <div id="stage2View" class="hidden h-full overflow-y-auto p-4 lg:p-6 bg-slate-50">
+      <div class="max-w-5xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Stage 2 Summary — Currently Talking To (Daily Boss Report)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Individual summaries of everyone currently in <strong>2. Currently Talking To</strong>, formatted for sending to your boss each day.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" onclick="copyStage2BossSummary()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition">
+              Copy Boss Summary
+            </button>
+            <button type="button" onclick="openStage2BossSummaryModal()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition flex items-center gap-1.5">
+              <span>Send Summary (<span class="boss-number-label">93578051</span>)</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="stage2SummaryContent" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: ARCHIVE PAGE -->
+    <div id="archiveView" class="hidden h-full overflow-y-auto p-4 lg:p-6 bg-slate-50">
+      <div class="max-w-6xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Archived Candidates</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Candidates who have been archived. You can review their full profiles or restore them back to the active pipeline anytime.</p>
+          </div>
+          <div class="relative">
+            <input type="text" id="archiveSearchInput" oninput="renderArchiveView()" placeholder="Search archive..." class="pl-7 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48" />
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
+
+        <div id="archiveContent" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: WHO IS COMING WHEN (Chronological Arrivals Summary) -->
+    <div id="scheduleView" class="hidden h-full overflow-y-auto p-4 lg:p-6 bg-slate-50">
+      <div class="max-w-6xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Who is Coming When — Arrivals & Interview Schedule</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Chronological overview of upcoming interviews, tests, retests, and onboarding joining dates (DOJ).</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs flex-wrap">
+            <button onclick="setScheduleFilter('all')" id="schedFilter-all" class="sched-pill px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white">All Upcoming</button>
+            <button onclick="setScheduleFilter('today')" id="schedFilter-today" class="sched-pill px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Today</button>
+            <button onclick="setScheduleFilter('tomorrow')" id="schedFilter-tomorrow" class="sched-pill px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Tomorrow</button>
+            <button onclick="setScheduleFilter('week')" id="schedFilter-week" class="sched-pill px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">Next 7 Days</button>
+            <div class="h-5 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+            <button onclick="openScheduleSummaryModal()" class="px-3 py-1.5 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1.5">
+              <span>Summary &amp; Send to <span class="boss-number-label">93578051</span></span>
+            </button>
+          </div>
+        </div>
+
+        <div id="scheduleContent" class="space-y-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- CANDIDATE PROFILE SLIDE-OVER DRAWER / MODAL -->
+  <div id="candidateModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-40 flex justify-end">
+    <div class="bg-white w-full max-w-lg h-full shadow-2xl border-l border-slate-200 flex flex-col overflow-hidden">
+      <!-- Drawer Header -->
+      <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2.5">
+          <h3 id="modalTitle" class="text-sm font-bold text-slate-900">Add New Candidate</h3>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-violet-50 text-violet-800 border border-violet-200 cursor-pointer hover:bg-violet-100 transition">
+            <input type="checkbox" id="supremeHrQuickToggle" onchange="syncSupremeHrToggle(this.checked)" class="rounded text-violet-600 focus:ring-violet-500" />
+            <span>Supreme HR</span>
+          </label>
+        </div>
+        <button onclick="closeCandidateModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Drawer Form -->
+      <form id="candidateForm" onsubmit="saveCandidateForm(event)" class="flex-1 overflow-y-auto p-5 space-y-4 text-xs select-text">
+        <input type="hidden" id="candId" />
+
+        <!-- Photo & Basic Identity -->
+        <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <img id="photoPreview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm bg-slate-200 shrink-0" />
+          <div class="flex-1 space-y-1.5">
+            <label class="block font-semibold text-slate-700">Profile Picture</label>
+            <div class="flex items-center gap-2">
+              <label class="px-2.5 py-1 bg-white border border-slate-300 rounded-md text-slate-700 font-medium hover:bg-slate-50 cursor-pointer">
+                Upload Photo
+                <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)" />
+              </label>
+              <button type="button" onclick="clearPhoto()" class="text-slate-400 hover:text-rose-600 text-[11px]">Remove</button>
+            </div>
+            <p class="text-[10px] text-slate-400">Auto-compressed so it saves reliably across restarts.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Full Name *</label>
+            <input type="text" id="candName" required placeholder="e.g. Sarah Tan" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">WhatsApp Number *</label>
+            <input type="text" id="candWhatsapp" required placeholder="e.g. +65 9123 4567" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Pipeline Stage / Status</label>
+            <select id="candStage" onchange="toggleRetestHighlight()" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <option value="contacted">1. Form submitted</option>
+              <option value="talking">2. Currently Talking To</option>
+              <option value="interview">3. Interview Schedule</option>
+              <option value="test">4. Assessment / Test</option>
+              <option value="retest">5. Writing Retest (Parked)</option>
+              <option value="offered">6. Job Offered</option>
+              <option value="joined">7. Joined</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employment Type</label>
+            <select id="candType" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <option value="">-- Select Employment Type --</option>
+              <option value="Full-Time">Full-time</option>
+              <option value="Part-Time">Part-time</option>
+              <option value="Weekend Staff">Weekend staff</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Source / Supreme HR?</label>
+            <select id="candSource" onchange="document.getElementById('supremeHrQuickToggle').checked = (this.value === 'Supreme HR')" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+              <option value="">Not Supreme HR (Standard)</option>
+              <option value="Supreme HR">Supreme HR</option>
+              <option value="A-levels">A-levels</option>
+              <option value="Main Form">Main Form</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Year of Birth</label>
+            <input type="text" id="candYob" placeholder="e.g. 1998" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Currently Studying?</label>
+            <input type="text" id="candStudying" placeholder="e.g. Yes / No" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Highest Qualification</label>
+            <input type="text" id="candQualification" placeholder="e.g. B.Sc. Mathematics" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Name of School</label>
+            <input type="text" id="candSchool" placeholder="e.g. NUS / JC" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Current Education</label>
+            <input type="text" id="candCurrEd" placeholder="e.g. Undergraduate" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Name of Institute</label>
+            <input type="text" id="candInstitute" placeholder="e.g. NUS" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Nationality</label>
+            <input type="text" id="candNationality" placeholder="e.g. Singaporean" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Visa Status</label>
+            <select id="candVisa" onchange="toggleOthersWpEpField()" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+              <option value="">-- Select Status --</option>
+              <option value="Citizen">Citizen</option>
+              <option value="PR">PR</option>
+              <option value="Student Pass">Student Pass</option>
+              <option value="LOC/Pre-LOC">LOC/Pre-LOC</option>
+              <option value="Others">Others</option>
+            </select>
+            <div id="othersWpEpWrapper" class="hidden mt-2 bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1">
+              <label for="candWpEpStatus" class="block font-semibold text-slate-700 text-[11px]">WP / EP Status</label>
+              <select id="candWpEpStatus" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">-- Select WP / EP --</option>
+                <option value="WP / EP Applied">WP / EP Applied</option>
+                <option value="WP / EP Not Applied">WP / EP Not Applied</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Position Applied</label>
+            <input type="text" id="candPosition" placeholder="e.g. Math Tutor" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Strongest Subject(s)</label>
+            <input type="text" id="candSubjects" placeholder="e.g. A-Math, Physics" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+
+        <!-- Dynamic Assessment / Test Scores & Exemption -->
+        <div id="assessmentSectionBox" class="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-2.5 transition-colors">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span id="assessmentSectionTitle" class="font-bold text-amber-900">Assessment / Test Scores</span>
+              <label class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 cursor-pointer hover:bg-slate-50 transition">
+                <input type="checkbox" id="candTestExempt" onchange="toggleTestExemptUI()" class="rounded text-teal-600 focus:ring-teal-500" />
+                <span>Exempted from Test</span>
+              </label>
+            </div>
+            <button type="button" id="addTestScoreBtn" onclick="addTestScoreField()" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[11px] shadow-2xs transition">
+              <span class="text-xs font-bold leading-none">+</span>
+              <span>Add Test</span>
+            </button>
+          </div>
+          <div id="testExemptNotice" class="hidden text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-2.5 py-1.5">
+            This candidate is marked as <strong>Exempted from Test</strong>. No assessment test is required.
+          </div>
+          <div id="dynamicTestScoresContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Dynamic test inputs rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Scheduling & Date of Joining -->
+        <div class="bg-indigo-50/50 border border-indigo-200/80 rounded-xl p-3 space-y-2.5">
+          <span class="font-bold text-indigo-950 block">Visit Schedule & Date of Joining</span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Next Visit Date</label>
+              <input type="date" id="candVisitDate" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Visit Time</label>
+              <input type="time" id="candVisitTime" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Date of Joining (DOJ)</label>
+              <input type="date" id="candDoj" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">HR Remarks & Notes</label>
+          <textarea id="candRemarks" rows="3" placeholder="Interview feedback, expected hourly rate, subject strengths..." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <!-- Footer Buttons -->
+        <div class="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+          <button type="button" id="deleteCandBtn" onclick="deleteCurrentCandidate()" class="hidden px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition">
+            Delete Candidate
+          </button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button type="button" onclick="withdrawCurrentCandidateFromModal()" class="px-3 py-2 text-xs font-medium bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg transition" title="Mark application as withdrawn">Withdraw Application</button>
+            <button type="button" onclick="archiveCurrentCandidateFromModal()" class="px-3 py-2 text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 rounded-lg transition">Archive</button>
+            <button type="button" onclick="closeCandidateModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+            <button type="submit" class="px-5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs">Save Profile</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- GOOGLE FORM / GOOGLE SHEET LIVE AUTO-SYNC MODAL -->
+  <div id="sheetSyncModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden select-text">
+      <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <span class="text-base">⚡</span>
+          <h3 class="text-sm font-bold text-slate-900">Google Form &rarr; Google Sheet Live Auto-Sync</h3>
+        </div>
+        <button onclick="closeSheetSyncModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900 space-y-1">
+          <p class="font-bold">How to connect in 2 easy steps (works offline/local too):</p>
+          <ol class="list-decimal list-inside space-y-1 text-emerald-800">
+            <li>Open your Google Form's linked <strong>Google Sheet</strong> &rarr; click the green <strong>Share</strong> button (top right) &rarr; change General access to <strong>Anyone with the link (Viewer)</strong>.</li>
+            <li>Copy the normal URL from your browser's address bar (<code>https://docs.google.com/spreadsheets/d/.../edit</code>) and paste it below!</li>
+          </ol>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Main Sheet URL (Optional)</label>
+            <input type="url" id="googleSheetUrlMain" placeholder="https://docs.google.com/spreadsheets/d/.../edit" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-violet-800 mb-1">Supreme HR Sheet URL</label>
+            <input type="url" id="googleSheetUrlSupreme" placeholder="https://docs.google.com/spreadsheets/d/.../edit" class="w-full px-3 py-2 border border-violet-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-teal-800 mb-1">A-levels Sheet URL</label>
+            <input type="url" id="googleSheetUrlAlevels" placeholder="https://docs.google.com/spreadsheets/d/.../edit" class="w-full px-3 py-2 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+        </div>
+
+        <div id="sheetSyncStatusBox" class="hidden rounded-lg p-3 border text-xs"></div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-slate-200">
+          <button type="button" onclick="disconnectGoogleSheet()" class="text-rose-600 hover:underline font-medium">Disconnect Link</button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeSheetSyncModal()" class="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">Close</button>
+            <button type="button" onclick="saveAndSyncGoogleSheet()" id="syncSheetBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-xs">
+              Save &amp; Sync Now
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE SUMMARY WHATSAPP MODAL -->
+  <div id="scheduleSummaryModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden select-text">
+      <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <h3 class="text-sm font-bold text-slate-900">Send Summary &rarr; WhatsApp (<span class="boss-number-label">93578051</span>)</h3>
+        </div>
+        <button onclick="closeScheduleSummaryModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-3 text-xs">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-1 min-w-[210px]">
+            <label for="bossPhoneInput" class="font-semibold text-slate-700 whitespace-nowrap">Recipient No.:</label>
+            <input type="text" id="bossPhoneInput" oninput="handleBossPhoneInput()" placeholder="e.g. 93578051 or +65 9123 4567" class="w-full px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <button type="button" onclick="saveBossPhoneNumber()" class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[11px] whitespace-nowrap shadow-2xs transition">
+              Save
+            </button>
+          </div>
+          <span id="summaryFilterBadge" class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-[11px]">All Upcoming</span>
+        </div>
+        <textarea id="scheduleSummaryText" rows="11" class="w-full p-3 border border-slate-300 rounded-xl font-mono text-[11px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50"></textarea>
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+          <button type="button" onclick="copyScheduleSummaryText()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg transition">
+            Copy Summary
+          </button>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeScheduleSummaryModal()" class="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium">
+              Close
+            </button>
+            <a id="sendWhatsappSummaryBtn" href="#" target="_blank" onclick="closeScheduleSummaryModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-xs transition inline-flex items-center gap-1.5">
+              <span>Send via WhatsApp</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 z-50"></div>
+
+  <script>
+    // =========================================================================
+    // 1. PIPELINE CONFIGURATION
+    // =========================================================================
+        // =========================================================================
+    // 1. PIPELINE CONFIGURATION
+    // =========================================================================
+    const PIPELINE_STAGES = [
+      { id: 'contacted', title: '1. Form submitted', badgeBg: 'bg-slate-200 text-slate-800', accent: 'border-t-slate-400' },
+      { id: 'talking', title: '2. Currently Talking To', badgeBg: 'bg-blue-100 text-blue-800', accent: 'border-t-blue-500' },
+      { id: 'interview', title: '3. Interview Schedule', badgeBg: 'bg-indigo-100 text-indigo-800', accent: 'border-t-indigo-500' },
+      { id: 'test', title: '4. Assessment / Test', badgeBg: 'bg-amber-100 text-amber-800', accent: 'border-t-amber-500' },
+      { id: 'retest', title: '5. Writing Retest', badgeBg: 'bg-orange-100 text-orange-800', accent: 'border-t-orange-500' },
+      { id: 'offered', title: '6. Job Offered', badgeBg: 'bg-sky-100 text-sky-800', accent: 'border-t-sky-500' },
+      { id: 'joined', title: '7. Joined', badgeBg: 'bg-emerald-100 text-emerald-800', accent: 'border-t-emerald-500' }
+    ];
+
+    const DEFAULT_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+
+    let candidates = [];
+    let currentView = 'board';
+    let scheduleFilter = 'all';
+    let passFilter = 'all';
+    let currentPhotoDataUrl = '';
+    let sheetPollInterval = null;
+
+    const INITIAL_SAMPLE_CANDIDATES = [
+      {
+        id: 'cand_sample_1',
+        name: 'Sarah Tan',
+        whatsapp: '+65 9123 4567',
+        stage: 'talking',
+        type: 'Full-Time',
+        yob: '1998',
+        isStudying: 'No',
+        qualification: 'B.Sc. Mathematics',
+        school: 'Raffles Institution',
+        currEducation: 'Bachelor Graduate',
+        institute: 'National University of Singapore (NUS)',
+        nationality: 'Singaporean',
+        visaStatus: 'Citizen',
+        position: 'Math Tutor',
+        subjects: 'A-Math, E-Math',
+        score1: '88%',
+        score2: '',
+        visitDate: '2026-11-19',
+        visitTime: '14:00',
+        doj: '2026-12-01',
+        remarks: 'Very strong background in Olympiad math. Excellent communicator.',
+        photo: '',
+        createdAt: '2026-11-10T08:00:00.000Z',
+        updatedAt: '2026-11-15T09:00:00.000Z'
+      },
+      {
+        id: 'cand_sample_2',
+        name: 'Marcus Lim',
+        whatsapp: '+65 8234 5678',
+        stage: 'interview',
+        type: 'Part-Time',
+        yob: '2001',
+        isStudying: 'Yes',
+        qualification: 'Year 3 Undergraduate',
+        school: 'Hwa Chong Institution',
+        currEducation: 'Undergraduate',
+        institute: 'Nanyang Technological University (NTU)',
+        nationality: 'Singaporean',
+        visaStatus: 'Citizen',
+        position: 'Physics & Math Tutor',
+        subjects: 'Physics, H2 Math',
+        score1: '75%',
+        score2: '',
+        visitDate: '2026-11-17',
+        visitTime: '15:30',
+        doj: '',
+        remarks: 'Scheduled for 1st interview. Very polite and eager.',
+        photo: '',
+        createdAt: '2026-11-11T10:00:00.000Z',
+        updatedAt: '2026-11-15T11:00:00.000Z'
+      },
+      {
+        id: 'cand_sample_3',
+        name: 'Aisha Rahman',
+        whatsapp: '+65 9345 6789',
+        stage: 'test',
+        type: 'Full-Time',
+        yob: '1996',
+        isStudying: 'No',
+        qualification: 'B.A. English & Literature',
+        school: 'National Junior College',
+        currEducation: 'Degree Graduate',
+        institute: 'Singapore Management University (SMU)',
+        nationality: 'Singaporean',
+        visaStatus: 'Citizen',
+        position: 'English Tutor',
+        subjects: 'English, Literature',
+        score1: '92%',
+        score2: '',
+        visitDate: '2026-11-20',
+        visitTime: '11:00',
+        doj: '',
+        remarks: 'Passed initial screening. Assessment test scheduled.',
+        photo: '',
+        createdAt: '2026-11-12T09:30:00.000Z',
+        updatedAt: '2026-11-16T14:20:00.000Z'
+      },
+      {
+        id: 'cand_sample_4',
+        name: 'Jonathan Ng',
+        whatsapp: '+65 8456 7890',
+        stage: 'offered',
+        type: 'Full-Time',
+        yob: '1995',
+        isStudying: 'No',
+        qualification: 'B.Sc. Chemistry',
+        school: 'Anglo-Chinese Junior College',
+        currEducation: 'B.Sc. Honors',
+        institute: 'National University of Singapore (NUS)',
+        nationality: 'Singaporean',
+        visaStatus: 'Citizen',
+        position: 'Science Tutor',
+        subjects: 'Chemistry, Biology',
+        score1: '85%',
+        score2: '94%',
+        visitDate: '2026-11-22',
+        visitTime: '10:00',
+        doj: '2026-12-05',
+        remarks: 'Completed retest with excellent improvement. Job offer extended.',
+        photo: '',
+        createdAt: '2026-11-05T08:00:00.000Z',
+        updatedAt: '2026-11-16T16:00:00.000Z'
+      },
+      {
+        id: 'cand_sample_5',
+        name: 'Chloe Teo',
+        whatsapp: '+65 9788 1234',
+        stage: 'contacted',
+        type: '',
+        yob: '2002',
+        isStudying: 'Yes',
+        qualification: 'Year 2 Undergraduate',
+        school: 'Anderson Serangoon JC',
+        currEducation: 'Undergraduate',
+        institute: 'Singapore University of Technology and Design (SUTD)',
+        nationality: 'Singaporean',
+        visaStatus: 'Citizen',
+        position: 'Lower Sec Math & Science',
+        subjects: 'Science, E-Math',
+        score1: '',
+        score2: '',
+        visitDate: '',
+        visitTime: '',
+        doj: '',
+        remarks: 'New application received via form.',
+        photo: '',
+        createdAt: '2026-11-16T10:00:00.000Z',
+        updatedAt: '2026-11-16T10:00:00.000Z'
+      }
+    ];
+
+    // =========================================================================
+    // 2. DUAL-LAYER PERSISTENT STORAGE (IndexedDB + localStorage Fallback)
+    // =========================================================================
+    const DB_NAME = 'TalentFlowHR_DB_v1';
+    const STORE_NAME = 'candidates';
+    const LS_BACKUP_KEY = 'talentflow_hr_candidates_backup_v1';
+    const LS_SHEET_URL_KEY = 'talentflow_hr_google_sheet_url_v1';
+
+    function openIndexedDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+          reject(new Error('IndexedDB unavailable'));
+          return;
+        }
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function loadCandidatesFromStorage() {
+      // Candidates now live in Supabase (via the portal's HR-gated API) rather
+      // than in this browser, so the pipeline is shared and durable.
+      updateSyncBadge('Loading…', 'bg-amber-400');
+      try {
+        const res = await fetch('/recruitment/api/candidates', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('load failed: ' + res.status);
+        const json = await res.json();
+        candidates = Array.isArray(json.candidates) ? json.candidates : [];
+        candidates.forEach(c => {
+          if (c.stage === 'contacted') {
+            c.type = '';
+          }
+        });
+        updateSyncBadge('Saved to Supabase', 'bg-emerald-500');
+      } catch (err) {
+        console.error('Recruitment load error:', err);
+        candidates = [];
+        updateSyncBadge('Could not load from server', 'bg-rose-500');
+      }
+    }
+
+    async function persistAllCandidates() {
+      updateSyncBadge('Saving…', 'bg-amber-400');
+      try {
+        const res = await fetch('/recruitment/api/candidates', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidates }),
+        });
+        if (!res.ok) throw new Error('save failed: ' + res.status);
+        updateSyncBadge('Saved to Supabase', 'bg-emerald-500');
+      } catch (err) {
+        console.error('Recruitment save error:', err);
+        updateSyncBadge('Save failed — check connection', 'bg-rose-500');
+      }
+    }
+
+    function updateSyncBadge(text, dotColorClass) {
+      const dot = document.getElementById('syncIndicatorDot');
+      const label = document.getElementById('syncIndicatorText');
+      if (dot) dot.className = `w-1.5 h-1.5 rounded-full ${dotColorClass}`;
+      if (label) label.textContent = text;
+    }
+
+    // =========================================================================
+    // 3. VIEW SWITCHING & KPI UPDATES
+    // =========================================================================
+    function switchView(view) {
+      currentView = view;
+      const boardEl = document.getElementById('boardView');
+      const schedEl = document.getElementById('scheduleView');
+      const stage2El = document.getElementById('stage2View');
+      const archEl = document.getElementById('archiveView');
+      const tabBoard = document.getElementById('tabBoardBtn');
+      const tabSched = document.getElementById('tabScheduleBtn');
+      const tabStage2 = document.getElementById('tabStage2Btn');
+      const tabArch = document.getElementById('tabArchiveBtn');
+
+      boardEl.classList.add('hidden');
+      schedEl.classList.add('hidden');
+      stage2El.classList.add('hidden');
+      archEl.classList.add('hidden');
+      tabBoard.className = 'px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition';
+      tabSched.className = 'px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
+      tabStage2.className = 'px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
+      tabArch.className = 'px-3 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5';
+
+      if (view === 'board') {
+        boardEl.classList.remove('hidden');
+        tabBoard.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-700 shadow-xs transition';
+      } else if (view === 'schedule') {
+        schedEl.classList.remove('hidden');
+        tabSched.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-700 shadow-xs transition flex items-center gap-1.5';
+        renderScheduleView();
+      } else if (view === 'stage2') {
+        stage2El.classList.remove('hidden');
+        tabStage2.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-xs transition flex items-center gap-1.5';
+        renderStage2SummaryView();
+      } else if (view === 'archive') {
+        archEl.classList.remove('hidden');
+        tabArch.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-white text-indigo-700 shadow-xs transition flex items-center gap-1.5';
+        renderArchiveView();
+      }
+    }
+
+    
+    function updateArchiveBadge() {
+      const count = candidates.filter(c => c.stage === 'archive').length;
+      document.getElementById('archiveBadge').textContent = count;
+    }
+
+    function renderArchiveView() {
+      const container = document.getElementById('archiveContent');
+      const q = (document.getElementById('archiveSearchInput').value || '').trim().toLowerCase();
+      const archived = candidates.filter(c => {
+        if (c.stage !== 'archive') return false;
+        if (!q) return true;
+        return [c.name, c.whatsapp, c.qualification, c.position, c.subjects, c.remarks].join(' ').toLowerCase().includes(q);
+      });
+
+      updateArchiveBadge();
+
+      if (archived.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-700">No archived candidates found</p>
+            <p class="text-xs text-slate-500">Candidates you archive will be safely stored here out of sight from your main active pipeline board.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const rowsHtml = archived.map(c => {
+        const cleanPhone = (c.whatsapp || '').replace(/[^0-9]/g, '');
+        return `
+          <tr onclick="openCandidateModal('${c.id}')" class="hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-none text-xs">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <img src="${c.photo || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0" />
+                <div>
+                  <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
+                  <div class="text-[11px] text-slate-500">${escapeHtml(c.qualification || '—')} • ${escapeHtml(c.type || 'Select FT/PT')}</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="text-slate-800 font-medium">${escapeHtml(c.position || '—')}</div>
+              <div class="text-[11px] text-indigo-600">${escapeHtml(c.subjects || '')}</div>
+            </td>
+            <td class="py-3 px-4 text-slate-600">
+              ${escapeHtml(c.whatsapp || '—')}
+            </td>
+            <td class="py-3 px-4 text-slate-500">
+              ${c.updatedAt ? new Date(c.updatedAt).toLocaleDateString('en-SG', {day: 'numeric', month: 'short', year: 'numeric'}) : '—'}
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+              <div class="flex items-center justify-end gap-2">
+                <button onclick="restoreCandidate('${c.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 font-semibold text-[11px]">
+                  Restore to Board
+                </button>
+                ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-[11px]">WhatsApp</a>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100 bg-slate-50">
+                  <th class="py-2.5 px-4 font-semibold">Candidate</th>
+                  <th class="py-2.5 px-4 font-semibold">Position &amp; Subjects</th>
+                  <th class="py-2.5 px-4 font-semibold">Contact</th>
+                  <th class="py-2.5 px-4 font-semibold">Archived Date</th>
+                  <th class="py-2.5 px-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    async function restoreCandidate(id) {
+      const cand = candidates.find(c => c.id === id);
+      if (!cand) return;
+      cand.stage = 'contacted';
+      cand.updatedAt = new Date().toISOString();
+      await persistAllCandidates();
+      renderAll();
+      if (currentView === 'archive') renderArchiveView();
+      showToast(`Restored ${cand.name} to 1. Form submitted`);
+    }
+
+    function updateKpis() {
+      document.getElementById('kpiTotal').textContent = candidates.length;
+      document.getElementById('kpiTesting').textContent = candidates.filter(c => c.stage === 'test' || c.stage === 'retest').length;
+      document.getElementById('kpiOffered').textContent = candidates.filter(c => c.stage === 'offered').length;
+      document.getElementById('kpiJoined').textContent = candidates.filter(c => c.stage === 'joined').length;
+
+      const upcomingCount = candidates.filter(c => c.visitDate || c.doj).length;
+      document.getElementById('upcomingBadge').textContent = upcomingCount;
+
+      const stage2Count = candidates.filter(c => c.stage === 'talking').length;
+      const s2Badge = document.getElementById('stage2Badge');
+      if (s2Badge) s2Badge.textContent = stage2Count;
+    }
+
+    function matchesQuickCategory(candidate, selectedFilter) {
+      if (!selectedFilter || selectedFilter === 'all') return true;
+      const candTypeNorm = String(candidate.type || '').trim().toLowerCase();
+      const candSourceNorm = String(candidate.sourceLabel || '').trim().toLowerCase();
+      const combinedText = [
+        candidate.type,
+        candidate.sourceLabel,
+        candidate.qualification,
+        candidate.school,
+        candidate.currEducation,
+        candidate.institute,
+        candidate.subjects,
+        candidate.position,
+        candidate.remarks
+      ].join(' ').toLowerCase();
+
+      if (selectedFilter === 'Full-Time') {
+        return candTypeNorm === 'full-time' || candTypeNorm === 'full time';
+      }
+      if (selectedFilter === 'Part-Time') {
+        return candTypeNorm === 'part-time' || candTypeNorm === 'part time';
+      }
+      if (selectedFilter === 'Weekend Staff') {
+        return (
+          candTypeNorm === 'weekend staff' ||
+          candTypeNorm === 'weekend' ||
+          combinedText.includes('weekend staff') ||
+          combinedText.includes('weekend')
+        );
+      }
+      if (selectedFilter === 'Supreme HR') {
+        return candSourceNorm.includes('supreme') || combinedText.includes('supreme hr');
+      }
+      return true;
+    }
+
+    function getFilteredCandidates() {
+      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const typeFilter = document.getElementById('typeFilter').value;
+
+      return candidates.filter(c => {
+        if (!matchesQuickCategory(c, typeFilter)) return false;
+        if (passFilter !== 'all' && classifyPassCategory(c.visaStatus, c.nationality) !== passFilter) return false;
+        if (!q) return true;
+        const allScoresText = getCandidateTestEntries(c)
+          .map(entry => `${entry.subject} ${entry.score}`)
+          .join(' ');
+        const exemptText = c.testExempt ? 'exempted from test exempt' : '';
+        const haystack = [
+          c.name, c.whatsapp, c.qualification, c.availability, c.remarks, allScoresText, exemptText, c.sourceLabel, c.subjects, c.position
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    function renderAll() {
+      updateKpis();
+      renderBoard();
+      updateArchiveBadge();
+      if (currentView === 'schedule') {
+        renderScheduleView();
+      } else if (currentView === 'stage2') {
+        renderStage2SummaryView();
+      }
+    }
+
+    // =========================================================================
+    // 4. KANBAN BOARD RENDERING & DRAG-AND-DROP
+    // =========================================================================
+    function renderBoard() {
+      const board = document.getElementById('boardView');
+      const filtered = getFilteredCandidates();
+
+      board.innerHTML = PIPELINE_STAGES.map(stage => {
+        const stageCards = filtered.filter(c => c.stage === stage.id);
+        const getPrimaryDate = (cand) => {
+          if (stage.id === 'joined' || stage.id === 'offered') {
+            return cand.doj || cand.visitDate || '';
+          }
+          return cand.visitDate || cand.doj || '';
+        };
+
+        stageCards.sort((a, b) => {
+          const dateA = getPrimaryDate(a);
+          const dateB = getPrimaryDate(b);
+          if (dateA && dateB) {
+            const cmp = dateA.localeCompare(dateB);
+            if (cmp !== 0) return cmp;
+            return (a.visitTime || '').localeCompare(b.visitTime || '');
+          }
+          if (dateA) return -1;
+          if (dateB) return 1;
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+        return `
+          <section
+            class="bg-slate-100/90 border border-slate-200 border-t-4 ${stage.accent} rounded-xl flex flex-col h-full min-h-[280px] overflow-hidden transition-colors"
+            ondragover="handleDragOver(event)"
+            ondragleave="handleDragLeave(event)"
+            ondrop="handleDrop(event, '${stage.id}')"
+          >
+            <div class="px-2.5 py-2 border-b border-slate-200/80 bg-white/70 flex items-center justify-between shrink-0">
+              <h2 class="text-xs font-bold text-slate-800 truncate">${stage.title}</h2>
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${stage.badgeBg}">${stageCards.length}</span>
+            </div>
+
+            <div class="flex-1 overflow-y-auto thin-scroll p-2 space-y-2">
+              ${stageCards.length === 0 ? `
+                <div class="h-24 border border-dashed border-slate-300/80 rounded-lg flex items-center justify-center text-[11px] text-slate-400 text-center px-2">
+                  Drop candidate here
+                </div>
+              ` : stageCards.map(c => buildCandidateCard(c)).join('')}
+            </div>
+          </section>
+        `;
+      }).join('');
+    }
+
+            function normalizeVisaOption(visaStatus, nationality = '') {
+      const v = String(visaStatus || '').trim().toLowerCase();
+      const n = String(nationality || '').trim().toLowerCase();
+      if (!v) {
+        if (n.includes('singaporean') || n.includes('citizen')) return 'Citizen';
+        return '';
+      }
+      if (v === 'citizen' || v.includes('citizen') || v.includes('singaporean')) return 'Citizen';
+      if (v === 'pr' || v.includes('permanent resident') || /\bpr\b/.test(v)) return 'PR';
+      if (v === 'student pass' || v.includes('student')) return 'Student Pass';
+      if (v === 'loc/pre-loc' || v.includes('loc')) return 'LOC/Pre-LOC';
+      if (v === 'others' || v === 'other') return 'Others';
+      return 'Others';
+    }
+
+    function classifyPassCategory(visaStatus, nationality) {
+      const norm = normalizeVisaOption(visaStatus, nationality);
+      if (norm === 'Citizen') return 'citizen';
+      if (norm === 'PR') return 'pr';
+      if (norm === 'Student Pass') return 'student';
+      if (norm === 'LOC/Pre-LOC') return 'loc';
+      if (norm === 'Others') return 'others';
+      return 'none';
+    }
+
+    function togglePassFilter(selectedType) {
+      passFilter = (passFilter === selectedType) ? 'all' : selectedType;
+      updatePassFilterUI();
+      renderAll();
+      if (passFilter === 'all') {
+        showToast('Showing all pass types');
+      } else {
+        const labels = {
+          citizen: 'Citizen',
+          pr: 'PR',
+          student: 'Student Pass',
+          loc: 'LOC/Pre-LOC',
+          others: 'Others'
+        };
+        showToast(`Filtered by ${labels[passFilter] || passFilter}`);
+      }
+    }
+
+    function updatePassFilterUI() {
+      const configs = {
+        citizen: {
+          active: 'bg-rose-100 ring-1 ring-rose-400 text-rose-900',
+          inactive: 'text-rose-800 hover:bg-rose-50',
+          dot: 'bg-rose-400',
+          label: 'Citizen'
+        },
+        pr: {
+          active: 'bg-blue-100 ring-1 ring-blue-400 text-blue-900',
+          inactive: 'text-blue-800 hover:bg-blue-50',
+          dot: 'bg-blue-400',
+          label: 'PR'
+        },
+        student: {
+          active: 'bg-emerald-100 ring-1 ring-emerald-400 text-emerald-900',
+          inactive: 'text-emerald-800 hover:bg-emerald-50',
+          dot: 'bg-emerald-400',
+          label: 'Student Pass'
+        },
+        loc: {
+          active: 'bg-amber-100 ring-1 ring-amber-400 text-amber-900',
+          inactive: 'text-amber-800 hover:bg-amber-50',
+          dot: 'bg-amber-400',
+          label: 'LOC/Pre-LOC'
+        },
+        others: {
+          active: 'bg-slate-200 ring-1 ring-slate-400 text-slate-900',
+          inactive: 'text-slate-700 hover:bg-slate-100',
+          dot: 'bg-slate-400',
+          label: 'Others'
+        }
+      };
+      Object.keys(configs).forEach(key => {
+        const btn = document.getElementById(`passPill-${key}`);
+        if (!btn) return;
+        const cfg = configs[key];
+        const stateClass = passFilter === key ? cfg.active : cfg.inactive;
+        btn.className = `flex items-center gap-1 px-1.5 py-0.5 rounded transition font-semibold ${stateClass}`;
+        btn.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${cfg.dot}"></span><span>${cfg.label}</span>`;
+      });
+    }
+
+        function getSourceBadgeStyle(sourceLabel) {
+      const s = String(sourceLabel || '').trim().toLowerCase();
+      if (s.includes('supreme')) {
+        return 'bg-violet-100 text-violet-800 border-violet-400 supreme-hr-blink';
+      }
+      if (s.includes('a-level') || s.includes('alevel') || s.includes('a level')) {
+        return 'bg-teal-100 text-teal-800 border-teal-300';
+      }
+      return 'bg-amber-100 text-amber-800 border-amber-300';
+    }
+
+    function toggleOthersWpEpField() {
+      const visaEl = document.getElementById('candVisa');
+      const wrapper = document.getElementById('othersWpEpWrapper');
+      const wpEpEl = document.getElementById('candWpEpStatus');
+      if (!visaEl || !wrapper) return;
+      if (visaEl.value === 'Others') {
+        wrapper.classList.remove('hidden');
+      } else {
+        wrapper.classList.add('hidden');
+        if (wpEpEl) wpEpEl.value = '';
+      }
+    }
+
+    function isWpEpNotAppliedUrgent(c) {
+      if (!c || !c.doj) return false;
+      const normVisa = normalizeVisaOption(c.visaStatus, c.nationality);
+      const rawWpEp = String(c.wpEpStatus || '').trim().toLowerCase();
+      const rawVisa = String(c.visaStatus || '').trim().toLowerCase();
+      const isNotApplied =
+        rawWpEp === 'wp / ep not applied' ||
+        rawWpEp.includes('not applied') ||
+        (normVisa === 'Others' && (rawVisa.includes('not applied') || rawVisa.includes('no wp') || rawVisa.includes('no ep')));
+      if (!isNotApplied) return false;
+
+      const parts = String(c.doj || '').split('-');
+      if (parts.length !== 3) return false;
+      const dojDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      if (isNaN(dojDate.getTime())) return false;
+
+      const now = new Date();
+      const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.round((dojDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      return diffDays <= 3;
+    }
+
+    function getPassColorStyle(visaStatus, nationality, wpEpStatus = '') {
+      const norm = normalizeVisaOption(visaStatus, nationality);
+      const displayLabel = norm || String(visaStatus || '').trim();
+
+      if (norm === 'Citizen') {
+        return {
+          cardBg: 'bg-rose-50/60 border-rose-200 hover:border-rose-400',
+          badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+          label: 'Citizen'
+        };
+      }
+      if (norm === 'PR') {
+        return {
+          cardBg: 'bg-blue-50/60 border-blue-200 hover:border-blue-400',
+          badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+          label: 'PR'
+        };
+      }
+      if (norm === 'Student Pass') {
+        return {
+          cardBg: 'bg-emerald-50/60 border-emerald-200 hover:border-emerald-400',
+          badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          label: 'Student Pass'
+        };
+      }
+      if (norm === 'LOC/Pre-LOC') {
+        return {
+          cardBg: 'bg-amber-50/60 border-amber-200 hover:border-amber-400',
+          badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+          label: 'LOC/Pre-LOC'
+        };
+      }
+      if (norm === 'Others' || displayLabel) {
+        const baseLabel = displayLabel || 'Others';
+        const cleanWpEp = String(wpEpStatus || '').trim();
+        const combinedLabel = (norm === 'Others' && cleanWpEp) ? `${baseLabel} • ${cleanWpEp}` : baseLabel;
+        return {
+          cardBg: 'bg-slate-50 border-slate-300 hover:border-slate-400',
+          badgeClass: 'bg-slate-200 text-slate-800 border-slate-300',
+          label: combinedLabel
+        };
+      }
+      return {
+        cardBg: 'bg-white border-slate-200 hover:border-indigo-400',
+        badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+        label: ''
+      };
+    }
+
+    function getOrdinalLabel(num) {
+      const mod100 = num % 100;
+      if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+      switch (num % 10) {
+        case 1: return `${num}st`;
+        case 2: return `${num}nd`;
+        case 3: return `${num}rd`;
+        default: return `${num}th`;
+      }
+    }
+
+    const TEST_SUBJECT_OPTIONS = [
+      'Maths Primary 5',
+      'Maths Primary 6',
+      'Maths Sec 1',
+      'Maths Sec 2',
+      'Maths O-level',
+      'Science Sec 1',
+      'Science Sec 2',
+      'Chemistry O-level',
+      'Biology O-level',
+      'Physics O-level',
+      'Computer science',
+      'Economics',
+      'Business'
+    ];
+
+    function normalizeTestSlot(item) {
+      if (item && typeof item === 'object') {
+        return {
+          subject: String(item.subject || '').trim(),
+          score: String(item.score || '').trim()
+        };
+      }
+      return {
+        subject: '',
+        score: String(item || '').trim()
+      };
+    }
+
+    function getCandidateTestEntries(c) {
+      if (Array.isArray(c.testScores)) {
+        return c.testScores
+          .map(normalizeTestSlot)
+          .filter(entry => entry.subject || entry.score);
+      }
+      const legacy = [];
+      if (c.score1 && String(c.score1).trim()) {
+        legacy.push({ subject: '', score: String(c.score1).trim() });
+      }
+      if (c.score2 && String(c.score2).trim()) {
+        legacy.push({ subject: '', score: String(c.score2).trim() });
+      }
+      return legacy;
+    }
+
+    function getCandidateModalTestSlots(c) {
+      if (Array.isArray(c.testScores) && c.testScores.length > 0) {
+        return c.testScores.map(item => {
+          if (item && typeof item === 'object') {
+            return {
+              subject: String(item.subject || ''),
+              score: String(item.score || '')
+            };
+          }
+          return { subject: '', score: String(item || '') };
+        });
+      }
+      const slots = [];
+      if (c.score1 && String(c.score1).trim()) {
+        slots.push({ subject: '', score: String(c.score1).trim() });
+      }
+      if (c.score2 && String(c.score2).trim()) {
+        slots.push({ subject: '', score: String(c.score2).trim() });
+      }
+      return slots.length > 0 ? slots : [{ subject: '', score: '' }];
+    }
+
+    function renderTestBadgesHtml(c) {
+      const entries = getCandidateTestEntries(c);
+      if (!c.testExempt && entries.length === 0) return '';
+      const badges = [];
+      if (c.testExempt) {
+        badges.push(`<span class="text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-300 px-1.5 py-0.5 rounded">Exempted from Test</span>`);
+      }
+      entries.forEach((entry, idx) => {
+        const badgeStyle = idx === 0
+          ? 'bg-amber-50 text-amber-800 border-amber-200'
+          : 'bg-orange-50 text-orange-800 border-orange-200';
+        const parts = [];
+        if (entry.subject) parts.push(escapeHtml(entry.subject));
+        if (entry.score) parts.push(escapeHtml(entry.score));
+        const text = parts.join(' — ');
+        badges.push(`<span class="text-[10px] font-semibold ${badgeStyle} border px-1.5 py-0.5 rounded">${getOrdinalLabel(idx + 1)}: ${text}</span>`);
+      });
+      return `<div class="flex flex-wrap gap-1 pt-0.5">${badges.join('')}</div>`;
+    }
+
+    function buildCandidateCard(c) {
+      const cleanPhone = (c.whatsapp || '').replace(/[^0-9]/g, '');
+      const waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : '#';
+      const avatar = c.photo || DEFAULT_AVATAR;
+      const typeBadge = c.type === 'Part-Time'
+        ? 'bg-purple-100 text-purple-800 border-purple-200'
+        : c.type === 'Full-Time'
+          ? 'bg-slate-100 text-slate-700 border-slate-200'
+          : 'bg-amber-50 text-amber-700 border-amber-200';
+      const passStyle = getPassColorStyle(c.visaStatus, c.nationality, c.wpEpStatus);
+
+      return `
+        <article
+          draggable="true"
+          ondragstart="handleDragStart(event, '${c.id}')"
+          ondragend="handleDragEnd(event)"
+          onclick="openCandidateModal('${c.id}')"
+          class="${passStyle.cardBg} ${isWpEpNotAppliedUrgent(c) ? 'wp-ep-urgent-blink' : ''} border rounded-xl p-2.5 shadow-2xs hover:shadow-sm cursor-pointer transition group space-y-2"
+        >
+          <!-- Top Row: Avatar, Name, Type & Pass Badges -->
+          <div class="flex items-start gap-2">
+            <img src="${avatar}" alt="" class="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0 bg-slate-100" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-1">
+                <h3 class="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600">${escapeHtml(c.name)}</h3>
+              </div>
+              <div class="flex items-center gap-1 mt-0.5 flex-wrap">
+                <span class="text-[10px] font-semibold px-1.5 py-0.2 rounded border ${typeBadge}">${escapeHtml(c.type || 'Select FT/PT')}</span>
+                ${passStyle.label ? `<span class="text-[10px] font-bold px-1.5 py-0.2 rounded border ${passStyle.badgeClass}">${escapeHtml(passStyle.label)}</span>` : ''}
+                ${c.sourceLabel ? `<span class="text-[10px] font-bold px-1.5 py-0.2 rounded border ${getSourceBadgeStyle(c.sourceLabel)}">${escapeHtml(c.sourceLabel)}</span>` : ''}
+                ${c.qualification ? `<span class="text-[10px] text-slate-500 truncate max-w-[110px]" title="${escapeHtml(c.qualification)}">${escapeHtml(c.qualification)}</span>` : ''}
+              </div>
+            </div>
+          </div>          <!-- WhatsApp & Subjects / Position -->
+          <div class="space-y-1 text-[11px] text-slate-600">
+            ${c.whatsapp ? `
+              <div class="flex items-center justify-between">
+                <span class="truncate text-slate-600">${escapeHtml(c.whatsapp)}</span>
+                ${cleanPhone ? `<a href="${waLink}" target="_blank" onclick="event.stopPropagation()" class="text-[10px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">WhatsApp</a>` : ''}
+              </div>
+            ` : ''}
+
+            ${c.subjects ? `
+              <div class="text-[10px] text-indigo-700 font-medium truncate" title="Subjects: ${escapeHtml(c.subjects)}">
+                <span>Subjects:</span> ${escapeHtml(c.subjects)}
+              </div>
+            ` : ''}
+
+            ${c.position ? `
+              <div class="text-[10px] text-slate-500 truncate" title="Position: ${escapeHtml(c.position)}">
+                <span>Role:</span> ${escapeHtml(c.position)}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Test Scores & Exemption Badges -->
+          ${renderTestBadgesHtml(c)}
+
+          <!-- Scheduled Visit or DOJ Footer -->
+          ${(c.visitDate || c.doj) ? `
+            <div class="pt-1.5 border-t border-slate-100 flex flex-col gap-0.5 text-[10px]">
+              ${c.visitDate ? `
+                <div class="text-indigo-700 font-medium flex items-center justify-between">
+                  <span>Visit: ${formatReadableDate(c.visitDate)}</span>
+                  ${c.visitTime ? `<span>${escapeHtml(c.visitTime)}</span>` : ''}
+                </div>
+              ` : ''}
+              ${c.doj ? `
+                <div class="${isWpEpNotAppliedUrgent(c) ? 'text-rose-700 font-bold' : 'text-emerald-700 font-semibold'}">
+                  DOJ: ${formatReadableDate(c.doj)}${isWpEpNotAppliedUrgent(c) ? ' • WP/EP Not Applied!' : ''}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          ${c.remarks ? `
+            <p class="text-[10px] text-slate-500 bg-slate-50 rounded px-1.5 py-1 line-clamp-2 border border-slate-100">
+              ${escapeHtml(c.remarks)}
+            </p>
+          ` : ''}
+        </article>
+      `;
+    }
+
+    let draggedCandidateId = null;
+
+    function handleDragStart(e, id) {
+      draggedCandidateId = id;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+      setTimeout(() => e.target.classList.add('dragging-card'), 0);
+    }
+
+    function handleDragEnd(e) {
+      e.target.classList.remove('dragging-card');
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    const STAGE_ORDER = ['contacted', 'talking', 'interview', 'test', 'retest', 'offered', 'joined'];
+
+    function getStageIndex(stageId) {
+      return STAGE_ORDER.indexOf(stageId);
+    }
+
+    function validateCandidateStageTransition(cand, targetStage) {
+      if (!targetStage || targetStage === 'archive' || targetStage === 'retest') {
+        return { valid: true };
+      }
+
+      const targetIdx = getStageIndex(targetStage);
+      if (targetIdx === -1) return { valid: true };
+
+      // Rule: Stage 1 -> Stage 2 (and beyond): must have selected Full-Time, Part-Time, or Weekend Staff
+      if (targetIdx >= 1) {
+        const empType = String(cand.type || '').trim();
+        if (empType !== 'Full-Time' && empType !== 'Part-Time' && empType !== 'Weekend Staff') {
+          return {
+            valid: false,
+            missingField: 'candType',
+            message: 'Before moving to Stage 2 (Currently Talking To), please select Full-time, Part-time, or Weekend staff.'
+          };
+        }
+      }
+
+      // Rule: Stage 2 -> Stage 3 (and beyond): interview must be scheduled (Visit Date required)
+      if (targetIdx >= 2) {
+        const visitDate = String(cand.visitDate || '').trim();
+        if (!visitDate) {
+          return {
+            valid: false,
+            missingField: 'candVisitDate',
+            message: 'Before moving to Stage 3 (Interview Schedule), please schedule their interview date (Next Visit Date).'
+          };
+        }
+      }
+
+      // Rule: Stage 3 -> Stage 4 (and beyond): test score must be entered OR marked as Exempted from Test
+      if (targetIdx >= 3) {
+        const isExempt = Boolean(cand.testExempt);
+        const entries = getCandidateTestEntries(cand);
+        const hasScore = entries.some(e => String(e.score || '').trim() !== '');
+        if (!isExempt && !hasScore) {
+          return {
+            valid: false,
+            missingField: 'candTestExempt',
+            message: 'Before moving to Stage 4 (Assessment / Test), please enter at least one test score or check "Exempted from Test".'
+          };
+        }
+      }
+
+      // Rule: Moving to Job Offered (and beyond): Date of Joining (DOJ) must be selected
+      if (targetIdx >= 5) {
+        const doj = String(cand.doj || '').trim();
+        if (!doj) {
+          return {
+            valid: false,
+            missingField: 'candDoj',
+            message: 'Before moving to Job Offered, please select the Date of Joining (DOJ).'
+          };
+        }
+      }
+
+      // Rule: Moving to Joined: once the DOJ date arrives/passes
+      if (targetIdx >= 6) {
+        const doj = String(cand.doj || '').trim();
+        const todayStr = getLocalIsoDate(0);
+        if (!doj) {
+          return {
+            valid: false,
+            missingField: 'candDoj',
+            message: 'Before moving to Joined, please select the Date of Joining (DOJ).'
+          };
+        }
+        if (doj > todayStr) {
+          return {
+            valid: false,
+            missingField: 'candDoj',
+            message: `Cannot move to Joined yet — Date of Joining (${formatReadableDate(doj)}) has not passed. It will auto-move once that date passes.`
+          };
+        }
+      }
+
+      return { valid: true };
+    }
+
+    async function runAutomatedStageLifecycle(silent = false) {
+      const todayStr = getLocalIsoDate(0);
+      const nowMs = Date.now();
+      const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+      let autoJoinedCount = 0;
+      let autoArchivedCount = 0;
+      let changed = false;
+
+      candidates.forEach(c => {
+        // 1. Stage 5 (Job Offered) -> Stage 6 (Joined): once Date of Joining (DOJ) passes (doj < today)
+        if (c.stage === 'offered' && c.doj && c.doj < todayStr) {
+          c.stage = 'joined';
+          // Anchor joinedAt to the DOJ (or now if DOJ was long ago? Anchor to DOJ so 2 weeks after joining auto-archives cleanly)
+          const dojDateObj = new Date(c.doj + 'T00:00:00');
+          c.joinedAt = !isNaN(dojDateObj.getTime()) ? dojDateObj.toISOString() : new Date().toISOString();
+          c.updatedAt = new Date().toISOString();
+          autoJoinedCount++;
+          changed = true;
+        }
+
+        // 2. Stage 6 (Joined) -> Archive: once in Stage 6 for 2 weeks (14 days)
+        if (c.stage === 'joined') {
+          // Determine when candidate entered Stage 6
+          let joinedTimestamp = null;
+          if (c.joinedAt) {
+            const parsed = Date.parse(c.joinedAt);
+            if (!isNaN(parsed)) joinedTimestamp = parsed;
+          }
+          if (!joinedTimestamp && c.doj) {
+            const parsedDoj = Date.parse(c.doj + 'T00:00:00');
+            if (!isNaN(parsedDoj)) joinedTimestamp = parsedDoj;
+          }
+          if (!joinedTimestamp && c.updatedAt) {
+            const parsedUpd = Date.parse(c.updatedAt);
+            if (!isNaN(parsedUpd)) joinedTimestamp = parsedUpd;
+          }
+
+          if (joinedTimestamp && (nowMs - joinedTimestamp) >= FOURTEEN_DAYS_MS) {
+            c.stage = 'archive';
+            c.remarks = (c.remarks ? c.remarks + ' — ' : '') + '[Auto-archived after 2 weeks in Joined]';
+            c.updatedAt = new Date().toISOString();
+            autoArchivedCount++;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        await persistAllCandidates();
+        if (!silent) {
+          const msgs = [];
+          if (autoJoinedCount > 0) msgs.push(`${autoJoinedCount} moved to Joined`);
+          if (autoArchivedCount > 0) msgs.push(`${autoArchivedCount} auto-archived after 2 weeks`);
+          showToast(`Auto-update: ${msgs.join(', ')}`);
+        }
+      }
+      return changed;
+    }
+
+    async function handleDrop(e, newStage) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain') || draggedCandidateId;
+      if (!id) return;
+
+      const cand = candidates.find(c => c.id === id);
+      if (cand && cand.stage !== newStage) {
+        const check = validateCandidateStageTransition(cand, newStage);
+        if (!check.valid) {
+          showToast(check.message);
+          openCandidateModal(cand.id);
+          if (check.missingField) {
+            setTimeout(() => {
+              const el = document.getElementById(check.missingField);
+              if (el) {
+                el.focus();
+                el.classList.add('ring-2', 'ring-rose-500');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500'), 2500);
+              }
+            }, 120);
+          }
+          return;
+        }
+
+        cand.stage = newStage;
+        if (newStage === 'joined' && !cand.joinedAt) {
+          cand.joinedAt = new Date().toISOString();
+        }
+        cand.updatedAt = new Date().toISOString();
+        await persistAllCandidates();
+        await runAutomatedStageLifecycle(true);
+        renderAll();
+        const stageObj = PIPELINE_STAGES.find(s => s.id === newStage);
+        showToast(`Moved ${cand.name} to ${stageObj ? stageObj.title : newStage}`);
+      }
+    }
+
+    // =========================================================================
+    // 5. "WHO IS COMING WHEN" SCHEDULE VIEW
+    // =========================================================================
+    function setScheduleFilter(filter) {
+      scheduleFilter = filter;
+      document.querySelectorAll('.sched-pill').forEach(btn => {
+        btn.className = 'sched-pill px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-700 hover:bg-slate-200';
+      });
+      const activeBtn = document.getElementById(`schedFilter-${filter}`);
+      if (activeBtn) {
+        activeBtn.className = 'sched-pill px-3 py-1.5 rounded-lg font-semibold bg-indigo-600 text-white';
+      }
+      renderScheduleView();
+    }
+
+    function getFilteredScheduleEvents() {
+      const filtered = getFilteredCandidates();
+      const todayStr = getLocalIsoDate(0);
+      const tomorrowStr = getLocalIsoDate(1);
+      const weekEndStr = getLocalIsoDate(7);
+
+      let events = [];
+      filtered.forEach(c => {
+        if (c.visitDate) {
+          events.push({
+            date: c.visitDate,
+            time: c.visitTime || '—',
+            purpose: getVisitPurposeLabel(c.stage),
+            purposeType: 'visit',
+            candidate: c
+          });
+        }
+        if (c.doj) {
+          events.push({
+            date: c.doj,
+            time: 'Onboarding',
+            purpose: 'Joining Date (DOJ)',
+            purposeType: 'doj',
+            candidate: c
+          });
+        }
+      });
+
+      events = events.filter(ev => {
+        if (scheduleFilter === 'today') return ev.date === todayStr;
+        if (scheduleFilter === 'tomorrow') return ev.date === tomorrowStr;
+        if (scheduleFilter === 'week') return ev.date >= todayStr && ev.date <= weekEndStr;
+        return true;
+      });
+
+      events.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || '').localeCompare(b.time || '');
+      });
+
+      return events;
+    }
+
+    function formatBoldCitizenshipLabel(c) {
+      const norm = normalizeVisaOption(c.visaStatus, c.nationality);
+      const rawVisa = String(c.visaStatus || '').trim();
+      const rawNat = String(c.nationality || '').trim();
+      let label = '';
+      if (norm) {
+        label = norm;
+      } else if (rawVisa) {
+        label = rawVisa;
+      } else if (rawNat) {
+        label = rawNat;
+      }
+      const wpEp = (norm === 'Others' && String(c.wpEpStatus || '').trim()) ? ` (${String(c.wpEpStatus).trim()})` : '';
+      return label ? `*${label}${wpEp}*` : '';
+    }
+
+    // =========================================================================
+    // 5A. SAVED BOSS / RECIPIENT WHATSAPP NUMBER HELPERS
+    // =========================================================================
+    const LS_BOSS_PHONE_KEY = 'talentflow_hr_boss_whatsapp_v1';
+    const DEFAULT_BOSS_PHONE = '93578051';
+
+    function getSavedBossDisplayNumber() {
+      const saved = (localStorage.getItem(LS_BOSS_PHONE_KEY) || '').trim();
+      return saved || DEFAULT_BOSS_PHONE;
+    }
+
+    function formatWhatsAppTargetDigits(rawInput) {
+      const digits = String(rawInput || '').replace(/[^0-9]/g, '');
+      if (!digits) return '6593578051';
+      // Auto-prepend Singapore country code 65 if user enters an 8-digit SG mobile number
+      if (digits.length === 8 && (digits.startsWith('8') || digits.startsWith('9'))) {
+        return '65' + digits;
+      }
+      return digits;
+    }
+
+    function refreshBossNumberLabels() {
+      const displayNum = getSavedBossDisplayNumber();
+      document.querySelectorAll('.boss-number-label').forEach(el => {
+        el.textContent = displayNum;
+      });
+    }
+
+    function updateSummaryModalWaLink() {
+      const textarea = document.getElementById('scheduleSummaryText');
+      const phoneInput = document.getElementById('bossPhoneInput');
+      const btn = document.getElementById('sendWhatsappSummaryBtn');
+      if (!textarea || !btn) return;
+      const rawPhone = phoneInput ? phoneInput.value : getSavedBossDisplayNumber();
+      const waDigits = formatWhatsAppTargetDigits(rawPhone);
+      const encoded = encodeURIComponent(textarea.value);
+      btn.href = `https://wa.me/${waDigits}?text=${encoded}`;
+    }
+
+    function handleBossPhoneInput() {
+      updateSummaryModalWaLink();
+    }
+
+    function saveBossPhoneNumber() {
+      const phoneInput = document.getElementById('bossPhoneInput');
+      if (!phoneInput) return;
+      const cleaned = phoneInput.value.trim();
+      if (!cleaned || cleaned.replace(/[^0-9]/g, '').length < 6) {
+        showToast('Please enter a valid phone number');
+        phoneInput.focus();
+        return;
+      }
+      localStorage.setItem(LS_BOSS_PHONE_KEY, cleaned);
+      refreshBossNumberLabels();
+      updateSummaryModalWaLink();
+      showToast(`Saved recipient number: ${cleaned}`);
+    }
+
+    function initSummaryModalRecipient() {
+      const phoneInput = document.getElementById('bossPhoneInput');
+      if (phoneInput) {
+        phoneInput.value = getSavedBossDisplayNumber();
+      }
+      const textarea = document.getElementById('scheduleSummaryText');
+      if (textarea) {
+        textarea.oninput = updateSummaryModalWaLink;
+      }
+      updateSummaryModalWaLink();
+    }
+
+    function openSingleDaySummaryModal(dateKey) {
+      const allEvents = getFilteredScheduleEvents();
+      const dayEvents = allEvents.filter(ev => ev.date === dateKey);
+      const readableDate = formatReadableDate(dateKey);
+      document.getElementById('summaryFilterBadge').textContent = readableDate;
+
+      const lines = [];
+      lines.push(`*Whole Day Schedule — ${readableDate}*`);
+      lines.push('');
+
+      if (dayEvents.length === 0) {
+        lines.push('No scheduled candidates for this day.');
+      } else {
+        dayEvents.forEach((ev, idx) => {
+          const c = ev.candidate;
+          const typePart = c.type ? ` (${c.type})` : '';
+          const srcPart = c.sourceLabel ? ` [${c.sourceLabel}]` : '';
+          const boldCit = formatBoldCitizenshipLabel(c);
+          const citPart = boldCit ? ` • ${boldCit}` : '';
+          const rolePart = c.position ? ` • Role: ${c.position}` : '';
+          const subjPart = c.subjects ? ` • Subjects: ${c.subjects}` : '';
+          const phonePart = c.whatsapp ? ` • Tel: ${c.whatsapp}` : '';
+          lines.push(`${idx + 1}. *${ev.time}* — *${c.name}*${typePart}${srcPart}${citPart}`);
+          lines.push(`   ${ev.purpose}${rolePart}${subjPart}${phonePart}`);
+        });
+        lines.push('');
+        lines.push(`Total for ${readableDate}: ${dayEvents.length} candidate(s)`);
+      }
+
+      const summaryText = lines.join('\n').trim();
+      const textarea = document.getElementById('scheduleSummaryText');
+      textarea.value = summaryText;
+
+      initSummaryModalRecipient();
+
+      document.getElementById('scheduleSummaryModal').classList.remove('hidden');
+    }
+
+    function openScheduleSummaryModal() {
+      const events = getFilteredScheduleEvents();
+      const filterLabels = {
+        all: 'All Upcoming',
+        today: 'Today',
+        tomorrow: 'Tomorrow',
+        week: 'Next 7 Days'
+      };
+      const label = filterLabels[scheduleFilter] || 'All Upcoming';
+      document.getElementById('summaryFilterBadge').textContent = label;
+
+      let lines = [];
+      lines.push(`*Candidate Arrivals Summary (${label})*`);
+      lines.push('');
+
+      if (events.length === 0) {
+        lines.push('No scheduled candidates for this period.');
+      } else {
+        const grouped = {};
+        events.forEach(ev => {
+          if (!grouped[ev.date]) grouped[ev.date] = [];
+          grouped[ev.date].push(ev);
+        });
+
+        Object.keys(grouped).forEach(dateKey => {
+          lines.push(`*${formatReadableDate(dateKey)}*`);
+          grouped[dateKey].forEach((ev, idx) => {
+            const c = ev.candidate;
+            const boldCit = formatBoldCitizenshipLabel(c);
+            const citPart = boldCit ? ` • ${boldCit}` : '';
+            const rolePart = c.position ? ` | ${c.position}` : '';
+            const typePart = c.type ? ` (${c.type})` : '';
+            const srcPart = c.sourceLabel ? ` [${c.sourceLabel}]` : '';
+            lines.push(`${idx + 1}. ${ev.time} — *${c.name}*${typePart}${srcPart}${citPart} • ${ev.purpose}${rolePart}`);
+          });
+          lines.push('');
+        });
+        lines.push(`Total: ${events.length} arrival(s)`);
+      }
+
+      const summaryText = lines.join('\n').trim();
+      const textarea = document.getElementById('scheduleSummaryText');
+      textarea.value = summaryText;
+
+      initSummaryModalRecipient();
+
+      document.getElementById('scheduleSummaryModal').classList.remove('hidden');
+    }
+
+    function closeScheduleSummaryModal() {
+      document.getElementById('scheduleSummaryModal').classList.add('hidden');
+    }
+
+    async function copyScheduleSummaryText() {
+      const text = document.getElementById('scheduleSummaryText').value;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Summary copied to clipboard');
+      } catch (err) {
+        const ta = document.getElementById('scheduleSummaryText');
+        ta.select();
+        document.execCommand('copy');
+        showToast('Summary copied to clipboard');
+      }
+    }
+
+    function renderScheduleView() {
+      const container = document.getElementById('scheduleContent');
+      const todayStr = getLocalIsoDate(0);
+      const tomorrowStr = getLocalIsoDate(1);
+      const events = getFilteredScheduleEvents();
+
+      if (events.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-700">No scheduled arrivals found for this filter</p>
+            <p class="text-xs text-slate-500">Open any candidate card and set their <strong>Next Visit Date</strong> or <strong>Date of Joining (DOJ)</strong> to see them appear here.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Group by date
+      const grouped = {};
+      events.forEach(ev => {
+        if (!grouped[ev.date]) grouped[ev.date] = [];
+        grouped[ev.date].push(ev);
+      });
+
+      container.innerHTML = Object.keys(grouped).map(dateKey => {
+        let dayTag = formatReadableDate(dateKey);
+        let headerBadge = 'bg-slate-100 text-slate-700';
+        if (dateKey === todayStr) {
+          dayTag = `TODAY — ${dayTag}`;
+          headerBadge = 'bg-indigo-600 text-white';
+        } else if (dateKey === tomorrowStr) {
+          dayTag = `TOMORROW — ${dayTag}`;
+          headerBadge = 'bg-amber-500 text-white';
+        } else if (dateKey < todayStr) {
+          dayTag = `PAST — ${dayTag}`;
+          headerBadge = 'bg-slate-200 text-slate-600';
+        }
+
+        const rowsHtml = grouped[dateKey].map(ev => {
+          const c = ev.candidate;
+          const cleanPhone = (c.whatsapp || '').replace(/[^0-9]/g, '');
+          const stageObj = PIPELINE_STAGES.find(s => s.id === c.stage);
+          const purposeBadge = ev.purposeType === 'doj'
+            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+            : 'bg-indigo-50 text-indigo-800 border-indigo-200';
+
+          return `
+            <tr onclick="openCandidateModal('${c.id}')" class="hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-none text-xs">
+              <td class="py-2.5 px-4 font-semibold text-slate-800 whitespace-nowrap">${escapeHtml(ev.time)}</td>
+              <td class="py-2.5 px-4">
+                <div class="flex items-center gap-2.5">
+                  <img src="${c.photo || DEFAULT_AVATAR}" class="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0" />
+                  <div>
+                    <div class="font-bold text-slate-900">${escapeHtml(c.name)}</div>
+                    <div class="text-[11px] text-slate-500">${escapeHtml(c.qualification || '—')} • ${escapeHtml(c.type || 'Select FT/PT')}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-2.5 px-4">
+                <span class="px-2 py-0.5 rounded-md border text-[11px] font-semibold ${purposeBadge}">${escapeHtml(ev.purpose)}</span>
+              </td>
+              <td class="py-2.5 px-4">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${stageObj ? stageObj.badgeBg : 'bg-slate-100'}">${stageObj ? stageObj.title : c.stage}</span>
+              </td>
+              <td class="py-2.5 px-4">
+                ${renderTestBadgesHtml(c) || '<span class="text-slate-400">—</span>'}
+              </td>
+              <td class="py-2.5 px-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+                ${cleanPhone ? `
+                  <a href="https://wa.me/${cleanPhone}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-[11px]">
+                    WhatsApp
+                  </a>
+                ` : '<span class="text-slate-400 text-[11px]">No phone</span>'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        return `
+          <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 flex-wrap">
+              <div class="flex items-center gap-2.5">
+                <span class="px-2.5 py-0.5 rounded-md text-xs font-bold ${headerBadge}">${dayTag}</span>
+                <span class="text-xs font-medium text-slate-500">${grouped[dateKey].length} candidate(s)</span>
+              </div>
+              <button type="button" onclick="openSingleDaySummaryModal('${dateKey}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] shadow-2xs transition">
+                Day Summary &rarr; <span class="boss-number-label">${escapeHtml(getSavedBossDisplayNumber())}</span>
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100 bg-white">
+                    <th class="py-2 px-4 font-semibold">Time</th>
+                    <th class="py-2 px-4 font-semibold">Candidate</th>
+                    <th class="py-2 px-4 font-semibold">Purpose</th>
+                    <th class="py-2 px-4 font-semibold">Current Stage</th>
+                    <th class="py-2 px-4 font-semibold">Test Scores</th>
+                    <th class="py-2 px-4 font-semibold text-right">Contact</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getVisitPurposeLabel(stage) {
+      switch (stage) {
+        case 'interview': return '1st Interview';
+        case 'test': return 'Assessment / Test';
+        case 'retest': return '2nd Test (Retest)';
+        case 'offered': return 'Offer Discussion';
+        case 'joined': return 'Onboarding Visit';
+        default: return 'Scheduled Visit';
+      }
+    }
+
+
+    // =========================================================================
+    // 5B. STAGE 2 ("CURRENTLY TALKING TO") DAILY BOSS SUMMARY PAGE
+    // =========================================================================
+    function getStage2Candidates() {
+      return getFilteredCandidates()
+        .filter(c => c.stage === 'talking')
+        .sort((a, b) => {
+          const da = a.visitDate || '';
+          const db = b.visitDate || '';
+          if (da && db) {
+            const cmp = da.localeCompare(db);
+            if (cmp !== 0) return cmp;
+            return (a.visitTime || '').localeCompare(b.visitTime || '');
+          }
+          if (da) return -1;
+          if (db) return 1;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+    }
+
+    function buildStage2BossReportText() {
+      const list = getStage2Candidates();
+      const todayReadable = formatReadableDate(getLocalIsoDate(0));
+      const lines = [
+        `*Daily Stage 2 Summary — Currently Talking To (${todayReadable})*`,
+        `Total in Stage 2: ${list.length}`,
+        ''
+      ];
+
+      if (list.length === 0) {
+        lines.push('No candidates currently in Stage 2 (Currently Talking To).');
+        return lines.join('\n').trim();
+      }
+
+      list.forEach((c, idx) => {
+        const boldCit = formatBoldCitizenshipLabel(c);
+        const eduParts = [c.qualification, c.currEducation, c.institute, c.school].filter(Boolean);
+        const eduText = eduParts.length > 0 ? eduParts.join(' • ') : 'Not specified';
+        const visitText = c.visitDate
+          ? `${formatReadableDate(c.visitDate)}${c.visitTime ? ` at ${c.visitTime}` : ''}`
+          : 'Not scheduled yet';
+
+        lines.push(`${idx + 1}. *${c.name}*${c.type ? ` (${c.type})` : ''}${c.sourceLabel ? ` [${c.sourceLabel}]` : ''}`);
+        lines.push(`   • Contact: ${c.whatsapp || '—'}${boldCit ? ` | Status: ${boldCit}` : ''}`);
+        lines.push(`   • Role & Subjects: ${c.position || '—'}${c.subjects ? ` (${c.subjects})` : ''}`);
+        lines.push(`   • Education: ${eduText}`);
+        lines.push(`   • Next Visit: ${visitText}`);
+        if (c.remarks) {
+          lines.push(`   • Notes: ${c.remarks}`);
+        }
+        lines.push('');
+      });
+
+      return lines.join('\n').trim();
+    }
+
+    function openStage2BossSummaryModal() {
+      const reportText = buildStage2BossReportText();
+      document.getElementById('summaryFilterBadge').textContent = 'Stage 2 Daily Report';
+      const textarea = document.getElementById('scheduleSummaryText');
+      textarea.value = reportText;
+
+      initSummaryModalRecipient();
+
+      document.getElementById('scheduleSummaryModal').classList.remove('hidden');
+    }
+
+    async function copyStage2BossSummary() {
+      const text = buildStage2BossReportText();
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Stage 2 daily summary copied to clipboard');
+      } catch (err) {
+        openStage2BossSummaryModal();
+      }
+    }
+
+    function renderStage2SummaryView() {
+      const container = document.getElementById('stage2SummaryContent');
+      const list = getStage2Candidates();
+      const s2Badge = document.getElementById('stage2Badge');
+      if (s2Badge) s2Badge.textContent = list.length;
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white border border-slate-200 rounded-xl p-10 text-center space-y-2">
+            <p class="text-sm font-semibold text-slate-700">No candidates currently in Stage 2 (Currently Talking To)</p>
+            <p class="text-xs text-slate-500">Move candidates to <strong>2. Currently Talking To</strong> (with Full-Time or Part-Time selected) to see their daily summary cards here.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map((c, idx) => {
+        const cleanPhone = (c.whatsapp || '').replace(/[^0-9]/g, '');
+        const passStyle = getPassColorStyle(c.visaStatus, c.nationality, c.wpEpStatus);
+        const typeBadge = c.type === 'Part-Time'
+          ? 'bg-purple-100 text-purple-800 border-purple-200'
+          : c.type === 'Full-Time'
+            ? 'bg-blue-100 text-blue-800 border-blue-200'
+            : 'bg-amber-50 text-amber-700 border-amber-200';
+        const eduSummary = [c.qualification, c.currEducation, c.institute, c.school].filter(Boolean).join(' • ') || '—';
+        const visitSummary = c.visitDate
+          ? `${formatReadableDate(c.visitDate)}${c.visitTime ? ` • ${c.visitTime}` : ''}`
+          : 'Not scheduled yet';
+
+        const urgentBlinkClass = isWpEpNotAppliedUrgent(c) ? 'wp-ep-urgent-blink' : '';
+        return `
+          <div onclick="openCandidateModal('${c.id}')" class="bg-white border border-slate-200 hover:border-blue-400 ${urgentBlinkClass} rounded-xl p-4 shadow-2xs transition cursor-pointer space-y-3">
+            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center shrink-0">${idx + 1}</span>
+                <img src="${c.photo || DEFAULT_AVATAR}" alt="" class="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0" />
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-bold text-slate-900">${escapeHtml(c.name)}</h3>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded border ${typeBadge}">${escapeHtml(c.type || 'Select FT/PT')}</span>
+                    ${passStyle.label ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded border ${passStyle.badgeClass}">${escapeHtml(passStyle.label)}</span>` : ''}
+                    ${c.sourceLabel ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded border ${getSourceBadgeStyle(c.sourceLabel)}">${escapeHtml(c.sourceLabel)}</span>` : ''}
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">${escapeHtml(eduSummary)}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
+                ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-semibold text-xs">WhatsApp</a>` : ''}
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Role &amp; Subjects</span>
+                <span class="font-semibold text-slate-800">${escapeHtml(c.position || '—')}</span>
+                ${c.subjects ? `<span class="block text-[11px] text-indigo-700 mt-0.5">${escapeHtml(c.subjects)}</span>` : ''}
+              </div>
+              <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Contact &amp; Availability</span>
+                <span class="font-semibold text-slate-800">${escapeHtml(c.whatsapp || '—')}</span>
+                ${c.isStudying ? `<span class="block text-[11px] text-slate-600 mt-0.5">Studying: ${escapeHtml(c.isStudying)}</span>` : ''}
+              </div>
+              <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Next Visit / Interview</span>
+                <span class="font-semibold text-indigo-800">${escapeHtml(visitSummary)}</span>
+              </div>
+            </div>
+
+            ${renderTestBadgesHtml(c)}
+
+            <div class="bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-slate-700">
+              <span class="font-semibold text-blue-950">HR Summary / Notes: </span>
+              <span>${escapeHtml(c.remarks || 'No notes recorded yet during conversation.')}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 6. CANDIDATE MODAL (ADD / EDIT / PHOTO COMPRESSION / DELETE)
+    // =========================================================================
+    function syncSupremeHrToggle(isChecked) {
+      const sel = document.getElementById('candSource');
+      if (isChecked) {
+        sel.value = 'Supreme HR';
+      } else if (sel.value === 'Supreme HR') {
+        sel.value = '';
+      }
+    }
+
+    function openCandidateModal(id = null) {
+      const modal = document.getElementById('candidateModal');
+      const form = document.getElementById('candidateForm');
+      const deleteBtn = document.getElementById('deleteCandBtn');
+      form.reset();
+
+      if (id) {
+        const c = candidates.find(item => item.id === id);
+        if (!c) return;
+        document.getElementById('modalTitle').textContent = 'Edit Candidate Profile';
+        document.getElementById('candId').value = c.id;
+        document.getElementById('candName').value = c.name || '';
+        document.getElementById('candWhatsapp').value = c.whatsapp || '';
+        document.getElementById('candStage').value = c.stage || 'contacted';
+        document.getElementById('candType').value = c.type || '';
+        const rawSrc = (c.sourceLabel || '').trim();
+        const normSrc = rawSrc.toLowerCase();
+        if (normSrc.includes('supreme')) {
+          document.getElementById('candSource').value = 'Supreme HR';
+        } else if (normSrc.includes('a-level') || normSrc.includes('alevel') || normSrc.includes('a level')) {
+          document.getElementById('candSource').value = 'A-levels';
+        } else if (normSrc === 'main form') {
+          document.getElementById('candSource').value = 'Main Form';
+        } else {
+          document.getElementById('candSource').value = '';
+        }
+        document.getElementById('supremeHrQuickToggle').checked = (document.getElementById('candSource').value === 'Supreme HR');
+        document.getElementById('candYob').value = c.yob || '';
+        document.getElementById('candStudying').value = c.isStudying || '';
+        document.getElementById('candQualification').value = c.qualification || '';
+        document.getElementById('candSchool').value = c.school || '';
+        document.getElementById('candCurrEd').value = c.currEducation || '';
+        document.getElementById('candInstitute').value = c.institute || '';
+        document.getElementById('candNationality').value = c.nationality || '';
+        const normVisa = normalizeVisaOption(c.visaStatus, c.nationality);
+        document.getElementById('candVisa').value = normVisa;
+        const savedWpEp = String(c.wpEpStatus || '').trim();
+        let inferredWpEp = savedWpEp;
+        if (!inferredWpEp && normVisa === 'Others') {
+          const rawV = String(c.visaStatus || '').toLowerCase();
+          if (rawV.includes('not applied') || rawV.includes('no wp') || rawV.includes('no ep')) {
+            inferredWpEp = 'WP / EP Not Applied';
+          } else if (rawV.includes('applied') || rawV.includes('wp') || rawV.includes('ep')) {
+            inferredWpEp = 'WP / EP Applied';
+          }
+        }
+        document.getElementById('candWpEpStatus').value = inferredWpEp;
+        toggleOthersWpEpField();
+        document.getElementById('candPosition').value = c.position || '';
+        document.getElementById('candSubjects').value = c.subjects || '';
+        document.getElementById('candTestExempt').checked = Boolean(c.testExempt);
+        currentModalTestSlots = getCandidateModalTestSlots(c);
+        renderDynamicTestInputs();
+        document.getElementById('candVisitDate').value = c.visitDate || '';
+        document.getElementById('candVisitTime').value = c.visitTime || '';
+        document.getElementById('candDoj').value = c.doj || '';
+        document.getElementById('candRemarks').value = c.remarks || '';
+        currentPhotoDataUrl = c.photo || '';
+        document.getElementById('photoPreview').src = currentPhotoDataUrl || DEFAULT_AVATAR;
+        deleteBtn.classList.remove('hidden');
+      } else {
+        document.getElementById('modalTitle').textContent = 'Add New Candidate';
+        document.getElementById('candId').value = '';
+        document.getElementById('candStage').value = 'contacted';
+        document.getElementById('candVisa').value = '';
+        document.getElementById('candWpEpStatus').value = '';
+        toggleOthersWpEpField();
+        document.getElementById('candType').value = '';
+        document.getElementById('candSource').value = '';
+        document.getElementById('supremeHrQuickToggle').checked = false;
+        document.getElementById('candTestExempt').checked = false;
+        currentModalTestSlots = [{ subject: '', score: '' }];
+        renderDynamicTestInputs();
+        currentPhotoDataUrl = '';
+        document.getElementById('photoPreview').src = DEFAULT_AVATAR;
+        deleteBtn.classList.add('hidden');
+      }
+
+      toggleTestExemptUI();
+      toggleRetestHighlight();
+      modal.classList.remove('hidden');
+    }
+
+    function closeCandidateModal() {
+      document.getElementById('candidateModal').classList.add('hidden');
+    }
+
+    let currentModalTestSlots = [{ subject: '', score: '' }];
+
+    function syncCurrentTestSlotsFromDom() {
+      const cards = document.querySelectorAll('.dynamic-test-slot-card');
+      if (cards.length > 0) {
+        currentModalTestSlots = Array.from(cards).map(card => {
+          const subjEl = card.querySelector('.dynamic-test-subject-select');
+          const scoreEl = card.querySelector('.dynamic-test-score-input');
+          return {
+            subject: subjEl ? subjEl.value : '',
+            score: scoreEl ? scoreEl.value : ''
+          };
+        });
+      }
+    }
+
+    function renderDynamicTestInputs() {
+      const container = document.getElementById('dynamicTestScoresContainer');
+      const isExempt = document.getElementById('candTestExempt').checked;
+      if (!container) return;
+
+      if (!Array.isArray(currentModalTestSlots) || currentModalTestSlots.length === 0) {
+        currentModalTestSlots = [{ subject: '', score: '' }];
+      }
+
+      container.innerHTML = currentModalTestSlots.map((slotObj, idx) => {
+        const slot = (slotObj && typeof slotObj === 'object')
+          ? slotObj
+          : { subject: '', score: String(slotObj || '') };
+        const testNum = idx + 1;
+        const label = idx === 0
+          ? '1st Test'
+          : `${getOrdinalLabel(testNum)} Test (Retest)`;
+        const canRemove = currentModalTestSlots.length > 1;
+
+        const optionsHtml = TEST_SUBJECT_OPTIONS.map(opt => {
+          const selected = slot.subject === opt ? 'selected' : '';
+          return `<option value="${escapeHtml(opt)}" ${selected}>${escapeHtml(opt)}</option>`;
+        }).join('');
+
+        return `
+          <div class="dynamic-test-slot-card bg-white/90 border border-amber-200/80 rounded-lg p-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-1">
+              <span class="font-bold text-slate-800 text-[11px]">${label}</span>
+              ${canRemove && !isExempt ? `
+                <button type="button" onclick="removeTestScoreField(${idx})" class="text-[10px] font-semibold text-rose-500 hover:text-rose-700 px-1 rounded" title="Remove this test">
+                  &times; Remove
+                </button>
+              ` : ''}
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 text-[10px] mb-0.5">Test Subject</label>
+              <select
+                onchange="currentModalTestSlots[${idx}].subject = this.value"
+                ${isExempt ? 'disabled' : ''}
+                class="dynamic-test-subject-select w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                <option value="">-- Select Subject --</option>
+                ${optionsHtml}
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-600 text-[10px] mb-0.5">Test Score</label>
+              <input
+                type="text"
+                value="${escapeHtml(slot.score)}"
+                oninput="currentModalTestSlots[${idx}].score = this.value"
+                ${isExempt ? 'disabled' : ''}
+                placeholder="e.g. 84% or 42/50"
+                class="dynamic-test-score-input w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:bg-slate-100 disabled:text-slate-400"
+              />
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addTestScoreField() {
+      syncCurrentTestSlotsFromDom();
+      if (document.getElementById('candTestExempt').checked) {
+        document.getElementById('candTestExempt').checked = false;
+        toggleTestExemptUI();
+      }
+      currentModalTestSlots.push({ subject: '', score: '' });
+      renderDynamicTestInputs();
+    }
+
+    function removeTestScoreField(index) {
+      syncCurrentTestSlotsFromDom();
+      if (currentModalTestSlots.length <= 1) return;
+      currentModalTestSlots.splice(index, 1);
+      renderDynamicTestInputs();
+    }
+
+    function toggleTestExemptUI() {
+      const isExempt = document.getElementById('candTestExempt').checked;
+      const box = document.getElementById('assessmentSectionBox');
+      const title = document.getElementById('assessmentSectionTitle');
+      const notice = document.getElementById('testExemptNotice');
+      const addBtn = document.getElementById('addTestScoreBtn');
+      const container = document.getElementById('dynamicTestScoresContainer');
+
+      if (isExempt) {
+        box.className = 'bg-teal-50/50 border border-teal-200 rounded-xl p-3 space-y-2.5 transition-colors';
+        title.className = 'font-bold text-teal-900';
+        notice.classList.remove('hidden');
+        addBtn.classList.add('opacity-50');
+        container.classList.add('opacity-50');
+      } else {
+        box.className = 'bg-amber-50/60 border border-amber-200/80 rounded-xl p-3 space-y-2.5 transition-colors';
+        title.className = 'font-bold text-amber-900';
+        notice.classList.add('hidden');
+        addBtn.classList.remove('opacity-50');
+        container.classList.remove('opacity-50');
+      }
+      renderDynamicTestInputs();
+    }
+
+    function toggleRetestHighlight() {
+      // Kept for compatibility with stage dropdown onchange
+    }
+
+    function handlePhotoUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 160;
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          currentPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+          document.getElementById('photoPreview').src = currentPhotoDataUrl;
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearPhoto() {
+      currentPhotoDataUrl = '';
+      document.getElementById('photoPreview').src = DEFAULT_AVATAR;
+      document.getElementById('photoInput').value = '';
+    }
+
+    async function saveCandidateForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('candId').value;
+      const payload = {
+        id: id || ('cand_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+        name: document.getElementById('candName').value.trim(),
+        whatsapp: document.getElementById('candWhatsapp').value.trim(),
+        stage: document.getElementById('candStage').value,
+        type: document.getElementById('candType').value,
+        sourceLabel: document.getElementById('candSource').value.trim(),
+        yob: document.getElementById('candYob').value.trim(),
+        isStudying: document.getElementById('candStudying').value.trim(),
+        qualification: document.getElementById('candQualification').value.trim(),
+        school: document.getElementById('candSchool').value.trim(),
+        currEducation: document.getElementById('candCurrEd').value.trim(),
+        institute: document.getElementById('candInstitute').value.trim(),
+        nationality: document.getElementById('candNationality').value.trim(),
+        visaStatus: document.getElementById('candVisa').value.trim(),
+        wpEpStatus: document.getElementById('candVisa').value.trim() === 'Others'
+          ? document.getElementById('candWpEpStatus').value.trim()
+          : '',
+        position: document.getElementById('candPosition').value.trim(),
+        subjects: document.getElementById('candSubjects').value.trim(),
+        testExempt: document.getElementById('candTestExempt').checked,
+        testScores: (() => {
+          syncCurrentTestSlotsFromDom();
+          return currentModalTestSlots.map(item => ({
+            subject: String((item && item.subject) || '').trim(),
+            score: String((item && item.score) || '').trim()
+          }));
+        })(),
+        score1: (() => {
+          syncCurrentTestSlotsFromDom();
+          const first = currentModalTestSlots[0] || {};
+          return [first.subject, first.score].filter(Boolean).join(' — ');
+        })(),
+        score2: (() => {
+          syncCurrentTestSlotsFromDom();
+          const second = currentModalTestSlots[1] || {};
+          return [second.subject, second.score].filter(Boolean).join(' — ');
+        })(),
+        visitDate: document.getElementById('candVisitDate').value,
+        visitTime: document.getElementById('candVisitTime').value,
+        doj: document.getElementById('candDoj').value,
+        remarks: document.getElementById('candRemarks').value.trim(),
+        photo: currentPhotoDataUrl,
+        updatedAt: new Date().toISOString()
+      };
+
+      const prevCand = id ? candidates.find(c => c.id === id) : null;
+      const stageChanged = !prevCand || prevCand.stage !== payload.stage;
+      if (stageChanged && payload.stage !== 'contacted') {
+        const check = validateCandidateStageTransition(payload, payload.stage);
+        if (!check.valid) {
+          showToast(check.message);
+          if (check.missingField) {
+            const el = document.getElementById(check.missingField);
+            if (el) {
+              el.focus();
+              el.classList.add('ring-2', 'ring-rose-500');
+              setTimeout(() => el.classList.remove('ring-2', 'ring-rose-500'), 2500);
+            }
+          }
+          return;
+        }
+      }
+
+      if (payload.stage === 'joined') {
+        payload.joinedAt = (prevCand && prevCand.joinedAt) ? prevCand.joinedAt : new Date().toISOString();
+      } else if (prevCand && prevCand.joinedAt) {
+        payload.joinedAt = prevCand.joinedAt;
+      }
+
+      if (id) {
+        const idx = candidates.findIndex(c => c.id === id);
+        if (idx !== -1) candidates[idx] = { ...candidates[idx], ...payload };
+        showToast(`Updated ${payload.name}`);
+      } else {
+        payload.createdAt = new Date().toISOString();
+        candidates.unshift(payload);
+        showToast(`Added ${payload.name} to pipeline`);
+      }
+
+      await runAutomatedStageLifecycle(true);
+      await persistAllCandidates();
+      renderAll();
+      closeCandidateModal();
+    }
+
+
+
+    async function withdrawCurrentCandidateFromModal() {
+      const id = document.getElementById('candId').value;
+      if (!id) return;
+      const cand = candidates.find(c => c.id === id);
+      if (cand) {
+        cand.stage = 'archive';
+        cand.remarks = (cand.remarks ? cand.remarks + ' — ' : '') + '[Application Withdrawn by Candidate]';
+        cand.updatedAt = new Date().toISOString();
+        await persistAllCandidates();
+        renderAll();
+        closeCandidateModal();
+        showToast(`Marked ${cand.name} as Withdrawn (moved to Archive)`);
+      }
+    }
+
+    async function archiveCurrentCandidateFromModal() {
+      const id = document.getElementById('candId').value;
+      if (!id) return;
+      const cand = candidates.find(c => c.id === id);
+      if (cand) {
+        cand.stage = 'archive';
+        cand.updatedAt = new Date().toISOString();
+        await persistAllCandidates();
+        renderAll();
+        closeCandidateModal();
+        showToast(`Archived ${cand.name}`);
+      }
+    }
+
+    async function deleteCurrentCandidate() {
+      const id = document.getElementById('candId').value;
+      if (!id) return;
+      const cand = candidates.find(c => c.id === id);
+      if (!confirm(`Remove ${cand ? cand.name : 'this candidate'} from your dashboard?`)) return;
+
+      candidates = candidates.filter(c => c.id !== id);
+      await persistAllCandidates();
+      renderAll();
+      closeCandidateModal();
+      showToast('Candidate removed');
+    }
+
+    // =========================================================================
+    // 7. CSV PARSER & GOOGLE FORM / GOOGLE SHEET LIVE SYNC
+    // =========================================================================
+    function parseCsvRows(csvText) {
+      const rows = [];
+      let currentRow = [];
+      let currentCell = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        const char = csvText[i];
+        const nextChar = csvText[i + 1];
+
+        if (inQuotes) {
+          if (char === '"' && nextChar === '"') {
+            currentCell += '"';
+            i++;
+          } else if (char === '"') {
+            inQuotes = false;
+          } else {
+            currentCell += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            currentRow.push(currentCell.trim());
+            currentCell = '';
+          } else if (char === '\r' && nextChar === '\n') {
+            currentRow.push(currentCell.trim());
+            rows.push(currentRow);
+            currentRow = [];
+            currentCell = '';
+            i++;
+          } else if (char === '\n' || char === '\r') {
+            currentRow.push(currentCell.trim());
+            rows.push(currentRow);
+            currentRow = [];
+            currentCell = '';
+          } else {
+            currentCell += char;
+          }
+        }
+      }
+      if (currentCell.length > 0 || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        rows.push(currentRow);
+      }
+      return rows.filter(r => r.some(cell => cell !== ''));
+    }
+
+    function detectRowSourceLabel(rowText, fallbackLabel) {
+      if (fallbackLabel === 'Supreme HR' || fallbackLabel === 'A-levels') {
+        return fallbackLabel;
+      }
+      const lower = String(rowText || '').toLowerCase();
+      if (lower.includes('supreme hr') || lower.includes('supreme')) {
+        return 'Supreme HR';
+      }
+      if (lower.includes('a-level') || lower.includes('a level') || lower.includes('alevel')) {
+        return 'A-levels';
+      }
+      return fallbackLabel || 'Main Form';
+    }
+
+    function importParsedCsvRows(rows, sourceLabel = 'Main Form') {
+      if (!rows || rows.length < 2) return { added: 0, skipped: 0, totalRows: 0 };
+
+      const headers = rows[0].map(h => h.toLowerCase());
+      const findCol = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+
+      const findExactOrKeyword = (exactList, keywordList) => {
+        let idx = headers.findIndex(h => exactList.some(e => h === e.toLowerCase()));
+        if (idx !== -1) return idx;
+        return findCol(keywordList);
+      };
+
+      let nameIdx = findExactOrKeyword(['Full Name (As per NRIC)', 'Full Name', 'Name'], ['full name', 'nric', 'name', 'candidate', 'applicant', 'teacher', 'instructor']);
+      const phoneIdx = findExactOrKeyword(['Phone number', 'Phone', 'Mobile'], ['phone', 'whatsapp', 'mobile', 'contact', 'number', 'tel', 'hp']);
+      const yobIdx = findExactOrKeyword(['Year of Birth', 'YOB'], ['year of birth', 'yob', 'birth', 'dob', 'age']);
+      const studyingIdx = findExactOrKeyword(['Are you current studying?', 'Currently Studying', 'Studying'], ['current studying', 'studying', 'student', 'currently']);
+      const qualIdx = findExactOrKeyword(['Highest Qualification', 'Qualification'], ['highest qualification', 'qualification', 'degree', 'education', 'diploma', 'cert', 'level']);
+      const schoolIdx = findExactOrKeyword(['Name of School', 'School'], ['name of school', 'school', 'secondary', 'jc', 'institution']);
+      const currEdIdx = findExactOrKeyword(['Current Education'], ['current education', 'curr ed', 'current level', 'year of study']);
+      const instituteIdx = findExactOrKeyword(['Name of Institute', 'Institute'], ['name of institute', 'institute', 'university', 'polytechnic', 'uni', 'college', 'nus', 'ntu']);
+      const nationalityIdx = findExactOrKeyword(['Nationality'], ['nationality', 'citizen', 'citizenship']);
+      const visaIdx = findExactOrKeyword(['Visa status in Singapore', 'Visa status'], ['visa', 'status in singapore', 'singapore', 'pass', 'pr']);
+      const posIdx = findExactOrKeyword(['Which position are you applying for?', 'Position'], ['position', 'role', 'applying for', 'applied', 'job']);
+      const subjIdx = findExactOrKeyword(['What would be your strongest teaching subject(s)?', 'Strongest teaching subject(s)', 'Subjects'], ['teaching subject', 'subject', 'strongest', 'teach', 'math', 'science', 'english']);
+      const empTypeIdx = findExactOrKeyword(['Employment Type', 'Full-Time / Part-Time', 'Type'], ['employment type', 'full-time', 'part-time', 'full time', 'part time', 'job type', 'commitment']);
+      const remarksIdx = findCol(['remark', 'note', 'about', 'experience', 'message', 'additional', 'comment']);
+
+      if (nameIdx === -1) {
+        const firstIsTimestamp = headers[0] && (headers[0].includes('timestamp') || headers[0].includes('time') || headers[0].includes('date'));
+        nameIdx = firstIsTimestamp && headers.length > 1 ? 1 : 0;
+      }
+
+      let added = 0;
+      let skipped = 0;
+
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        const rawName = (row[nameIdx] || '').trim();
+        if (!rawName) continue;
+
+        const rawPhone = phoneIdx !== -1 ? (row[phoneIdx] || '').trim() : '';
+        const normName = rawName.toLowerCase();
+        const normPhone = rawPhone.replace(/[^0-9]/g, '');
+        const resolvedSource = detectRowSourceLabel(row.join(' '), sourceLabel);
+
+        const existingCand = candidates.find(c => {
+          const existingPhone = (c.whatsapp || '').replace(/[^0-9]/g, '');
+          if (normPhone && existingPhone && normPhone === existingPhone) return true;
+          return (c.name || '').trim().toLowerCase() === normName;
+        });
+
+        if (existingCand) {
+          if (!existingCand.sourceLabel && resolvedSource) {
+            existingCand.sourceLabel = resolvedSource;
+          }
+          skipped++;
+          continue;
+        }
+
+        candidates.unshift({
+          id: 'cand_' + Date.now() + '_' + r + '_' + Math.random().toString(36).slice(2, 6),
+          name: rawName,
+          whatsapp: rawPhone,
+          stage: 'contacted',
+          type: (() => {
+            if (empTypeIdx === -1) return '';
+            const rawT = (row[empTypeIdx] || '').trim().toLowerCase();
+            if (rawT.includes('weekend')) return 'Weekend Staff';
+            if (rawT.includes('part')) return 'Part-Time';
+            if (rawT.includes('full')) return 'Full-Time';
+            return '';
+          })(),
+          sourceLabel: resolvedSource,
+          yob: yobIdx !== -1 ? (row[yobIdx] || '').trim() : '',
+          isStudying: studyingIdx !== -1 ? (row[studyingIdx] || '').trim() : '',
+          qualification: qualIdx !== -1 ? (row[qualIdx] || '').trim() : '',
+          school: schoolIdx !== -1 ? (row[schoolIdx] || '').trim() : '',
+          currEducation: currEdIdx !== -1 ? (row[currEdIdx] || '').trim() : '',
+          institute: instituteIdx !== -1 ? (row[instituteIdx] || '').trim() : '',
+          nationality: nationalityIdx !== -1 ? (row[nationalityIdx] || '').trim() : '',
+          visaStatus: visaIdx !== -1 ? (row[visaIdx] || '').trim() : '',
+          position: posIdx !== -1 ? (row[posIdx] || '').trim() : '',
+          subjects: subjIdx !== -1 ? (row[subjIdx] || '').trim() : '',
+          score1: '',
+          score2: '',
+          visitDate: '',
+          visitTime: '',
+          doj: '',
+          remarks: remarksIdx !== -1 ? (row[remarksIdx] || '').trim() : '',
+          photo: '',
+          createdAt: new Date().toISOString()
+        });
+        added++;
+      }
+
+      return { added, skipped, totalRows: rows.length - 1 };
+    }
+
+    async function handleCsvImport(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const selectEl = document.getElementById('csvSourceSelect');
+      let chosenSource = selectEl ? selectEl.value : 'auto';
+      if (chosenSource === 'auto') {
+        const fname = (file.name || '').toLowerCase();
+        if (fname.includes('supreme')) chosenSource = 'Supreme HR';
+        else if (fname.includes('a-level') || fname.includes('a level') || fname.includes('alevel')) chosenSource = 'A-levels';
+        else chosenSource = 'Main Form';
+      }
+      const text = await file.text();
+      const rows = parseCsvRows(text);
+      const res = importParsedCsvRows(rows, chosenSource);
+      if (res.added > 0) {
+        await persistAllCandidates();
+        renderAll();
+      }
+      showToast(`CSV Import (${chosenSource}): ${res.added} added, ${res.skipped} duplicates skipped.`);
+      e.target.value = '';
+    }
+
+    // Google Sheet Live Sync (Main + Supreme HR + A-levels)
+    const LS_SHEET_MAIN_KEY = 'talentflow_hr_sheet_main_v1';
+    const LS_SHEET_SUPREME_KEY = 'talentflow_hr_sheet_supreme_v1';
+    const LS_SHEET_ALEVELS_KEY = 'talentflow_hr_sheet_alevels_v1';
+
+    function getConfiguredSheets() {
+      // Migrate legacy single URL key if present
+      const legacy = (localStorage.getItem(LS_SHEET_URL_KEY) || '').trim();
+      let mainUrl = (localStorage.getItem(LS_SHEET_MAIN_KEY) || '').trim();
+      if (!mainUrl && legacy) {
+        mainUrl = legacy;
+        localStorage.setItem(LS_SHEET_MAIN_KEY, mainUrl);
+      }
+      const supremeUrl = (localStorage.getItem(LS_SHEET_SUPREME_KEY) || '').trim();
+      const alevelsUrl = (localStorage.getItem(LS_SHEET_ALEVELS_KEY) || '').trim();
+
+      return [
+        { key: 'main', label: 'Main Form', url: mainUrl },
+        { key: 'supreme', label: 'Supreme HR', url: supremeUrl },
+        { key: 'alevels', label: 'A-levels', url: alevelsUrl }
+      ].filter(s => Boolean(s.url));
+    }
+
+    function openSheetSyncModal() {
+      const legacy = (localStorage.getItem(LS_SHEET_URL_KEY) || '').trim();
+      document.getElementById('googleSheetUrlMain').value = localStorage.getItem(LS_SHEET_MAIN_KEY) || legacy || '';
+      document.getElementById('googleSheetUrlSupreme').value = localStorage.getItem(LS_SHEET_SUPREME_KEY) || '';
+      document.getElementById('googleSheetUrlAlevels').value = localStorage.getItem(LS_SHEET_ALEVELS_KEY) || '';
+      document.getElementById('sheetSyncModal').classList.remove('hidden');
+    }
+
+    function closeSheetSyncModal() {
+      document.getElementById('sheetSyncModal').classList.add('hidden');
+    }
+
+    function extractSpreadsheetInfo(inputUrl) {
+      const url = inputUrl.trim();
+      const idMatch = url.match(/\/spreadsheets\/d\/(?:e\/)?([a-zA-Z0-9-_]+)/);
+      const gidMatch = url.match(/[?&#]gid=([0-9]+)/);
+      return {
+        rawUrl: url,
+        sheetId: idMatch ? idMatch[1] : null,
+        isPublishedId: url.includes('/spreadsheets/d/e/'),
+        gid: gidMatch ? gidMatch[1] : '0'
+      };
+    }
+
+    function loadGoogleSheetViaJsonp(sheetId, gid) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'gvizCb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        const script = document.createElement('script');
+        let settled = false;
+
+        const cleanup = () => {
+          if (script.parentNode) script.parentNode.removeChild(script);
+          try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+        };
+
+        const timer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            reject(new Error('JSONP timeout'));
+          }
+        }, 8000);
+
+        window[callbackName] = function(response) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          cleanup();
+          try {
+            if (!response || response.status === 'error' || !response.table) {
+              reject(new Error('Google Visualization API denied access'));
+              return;
+            }
+            const cols = (response.table.cols || []).map(c => (c.label || c.id || '').trim());
+            const rows = [cols];
+            (response.table.rows || []).forEach(r => {
+              const cells = (r.c || []).map(cell => {
+                if (!cell || cell.v === null || cell.v === undefined) return '';
+                return String(cell.f !== undefined && cell.f !== null ? cell.f : cell.v).trim();
+              });
+              rows.push(cells);
+            });
+            resolve(rows);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        script.onerror = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          cleanup();
+          reject(new Error('JSONP script load error'));
+        };
+
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${callbackName}&gid=${gid}`;
+        document.body.appendChild(script);
+      });
+    }
+
+    async function fetchSheetRowsSmart(inputUrl) {
+      const info = extractSpreadsheetInfo(inputUrl);
+
+      if (info.sheetId && !info.isPublishedId) {
+        try {
+          const jsonpRows = await loadGoogleSheetViaJsonp(info.sheetId, info.gid);
+          if (jsonpRows && jsonpRows.length >= 1) {
+            return jsonpRows;
+          }
+        } catch (e) {
+          console.warn('JSONP fallback triggered:', e.message);
+        }
+      }
+
+      let csvUrl = info.rawUrl;
+      if (csvUrl.includes('/pubhtml')) {
+        csvUrl = csvUrl.replace('/pubhtml', '/pub?output=csv');
+      } else if (!csvUrl.includes('output=csv') && !csvUrl.includes('tqx=out:csv') && info.sheetId && !info.isPublishedId) {
+        csvUrl = `https://docs.google.com/spreadsheets/d/${info.sheetId}/gviz/tq?tqx=out:csv&gid=${info.gid}`;
+      }
+
+      const endpoints = [
+        csvUrl,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(csvUrl)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`
+      ];
+
+      let lastErr = null;
+      for (const ep of endpoints) {
+        try {
+          const resp = await fetch(ep, { cache: 'no-store' });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const text = await resp.text();
+          if (text && !text.trim().startsWith('<!DOCTYPE html') && !text.trim().startsWith('<html')) {
+            return parseCsvRows(text);
+          }
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Unable to reach Google Sheet.');
+    }
+
+    async function syncGoogleSheetNow(silent = false) {
+      const activeSheets = getConfiguredSheets();
+      const autoDot = document.getElementById('autoSyncDot');
+      if (activeSheets.length === 0) {
+        if (autoDot) autoDot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+        return { totalAdded: 0, totalRows: 0, results: [] };
+      }
+
+      let totalAdded = 0;
+      let totalRows = 0;
+      const results = [];
+      let anyError = false;
+
+      for (const sheet of activeSheets) {
+        try {
+          const rows = await fetchSheetRowsSmart(sheet.url);
+          const res = importParsedCsvRows(rows, sheet.label);
+          totalAdded += res.added;
+          totalRows += res.totalRows;
+          results.push({ ...sheet, ...res, ok: true });
+        } catch (err) {
+          anyError = true;
+          results.push({ ...sheet, added: 0, skipped: 0, totalRows: 0, ok: false, error: err.message });
+        }
+      }
+
+      if (totalAdded > 0) {
+        await persistAllCandidates();
+        renderAll();
+        showToast(`Auto-Sync: ${totalAdded} new candidate(s) pulled across sheets!`);
+      } else if (!silent) {
+        showToast(`Synced ${activeSheets.length} sheet(s) (${totalRows} rows checked).`);
+      }
+
+      if (autoDot) {
+        autoDot.className = anyError
+          ? 'w-1.5 h-1.5 rounded-full bg-amber-500'
+          : 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+      }
+
+      return { totalAdded, totalRows, results };
+    }
+
+    async function saveAndSyncGoogleSheet() {
+      const mainVal = document.getElementById('googleSheetUrlMain').value.trim();
+      const supremeVal = document.getElementById('googleSheetUrlSupreme').value.trim();
+      const alevelsVal = document.getElementById('googleSheetUrlAlevels').value.trim();
+      const statusBox = document.getElementById('sheetSyncStatusBox');
+      const btn = document.getElementById('syncSheetBtn');
+
+      if (!mainVal && !supremeVal && !alevelsVal) {
+        statusBox.className = 'rounded-lg p-3 border border-rose-200 bg-rose-50 text-rose-800 text-xs';
+        statusBox.textContent = 'Please paste at least one Google Sheet link (Main, Supreme HR, or A-levels).';
+        statusBox.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Syncing...';
+      localStorage.setItem(LS_SHEET_MAIN_KEY, mainVal);
+      localStorage.setItem(LS_SHEET_SUPREME_KEY, supremeVal);
+      localStorage.setItem(LS_SHEET_ALEVELS_KEY, alevelsVal);
+
+      try {
+        const summary = await syncGoogleSheetNow(true);
+        const lines = summary.results.map(r => {
+          if (!r.ok) {
+            return `<div class="text-rose-700">• <strong>${escapeHtml(r.label)}</strong>: Could not connect — check sharing permissions (Anyone with link can View).</div>`;
+          }
+          return `<div class="text-emerald-900">• <strong>${escapeHtml(r.label)}</strong>: ${r.totalRows} row(s) checked &rarr; <strong>${r.added}</strong> new added (${r.skipped} already on board).</div>`;
+        }).join('');
+
+        statusBox.className = 'rounded-lg p-3 border border-emerald-200 bg-emerald-50 text-xs space-y-1';
+        statusBox.innerHTML = `<div class="font-bold text-emerald-950">Sync Complete!</div>${lines}<div class="text-[11px] text-emerald-700 pt-1">Auto-sync checks every 10s while open.</div>`;
+        statusBox.classList.remove('hidden');
+        startSheetAutoPolling();
+      } catch (err) {
+        statusBox.className = 'rounded-lg p-3 border border-rose-200 bg-rose-50 text-rose-800 text-xs';
+        statusBox.textContent = 'Sync error: ' + err.message;
+        statusBox.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save & Sync Now';
+      }
+    }
+
+    function disconnectGoogleSheet() {
+      localStorage.removeItem(LS_SHEET_URL_KEY);
+      localStorage.removeItem(LS_SHEET_MAIN_KEY);
+      localStorage.removeItem(LS_SHEET_SUPREME_KEY);
+      localStorage.removeItem(LS_SHEET_ALEVELS_KEY);
+      document.getElementById('googleSheetUrlMain').value = '';
+      document.getElementById('googleSheetUrlSupreme').value = '';
+      document.getElementById('googleSheetUrlAlevels').value = '';
+      document.getElementById('sheetSyncStatusBox').classList.add('hidden');
+      document.getElementById('autoSyncDot').className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+      if (sheetPollInterval) clearInterval(sheetPollInterval);
+      showToast('All Google Sheets disconnected');
+    }
+
+    function startSheetAutoPolling() {
+      if (sheetPollInterval) clearInterval(sheetPollInterval);
+      if (getConfiguredSheets().length === 0) return;
+      sheetPollInterval = setInterval(() => {
+        syncGoogleSheetNow(true).catch(() => {});
+      }, 10000);
+    }
+
+    // =========================================================================
+    // 8. JSON BACKUP & RESTORE
+    // =========================================================================
+    function exportBackupJson() {
+      const blob = new Blob([JSON.stringify(candidates, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `talentflow-hr-backup-${getLocalIsoDate(0)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup file downloaded');
+    }
+
+    async function importBackupJson(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) throw new Error('Invalid backup format');
+        candidates = parsed;
+        await persistAllCandidates();
+        renderAll();
+        showToast(`Restored ${candidates.length} candidate(s) from backup`);
+      } catch (err) {
+        alert('Could not restore backup file: ' + err.message);
+      }
+      e.target.value = '';
+    }
+
+    // =========================================================================
+    // 9. UTILITIES & INITIALIZATION
+    // =========================================================================
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function getLocalIsoDate(offsetDays = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatReadableDate(isoDate) {
+      if (!isoDate) return '';
+      const parts = isoDate.split('-');
+      if (parts.length !== 3) return isoDate;
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return d.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('opacity-0');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('opacity-0'), 3200);
+    }
+
+    // Boot Application
+    (async function initApp() {
+      await loadCandidatesFromStorage();
+      await runAutomatedStageLifecycle(false);
+      refreshBossNumberLabels();
+      renderAll();
+      setInterval(() => {
+        runAutomatedStageLifecycle(false).then(changed => {
+          if (changed) renderAll();
+        });
+      }, 60000);
+      if (getConfiguredSheets().length > 0) {
+        syncGoogleSheetNow(true).catch(() => {});
+        startSheetAutoPolling();
+      }
+    })();
+  </script>
+</body>
+</html>
