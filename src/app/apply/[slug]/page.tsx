@@ -1,9 +1,21 @@
+import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { effectiveForm, type ApplicationFormRow } from "@/lib/recruitmentForm";
 import { ApplyForm } from "@/components/apply/ApplyForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Application — MathVision" };
+
+// `absolute` opts out of the root title template ("· Global Online Invoicing")
+// and `description: null` drops the inherited app description, so the public
+// link-share card reads simply "Application — MathVision".
+export const metadata: Metadata = {
+  title: { absolute: "Application — MathVision" },
+  description: null,
+  openGraph: {
+    title: "Application — MathVision",
+    type: "website",
+  },
+};
 
 function Unavailable() {
   return (
