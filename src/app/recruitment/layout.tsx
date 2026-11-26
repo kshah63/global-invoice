@@ -22,6 +22,12 @@ export default async function RecruitmentLayout({
         </div>
         <div className="flex items-center gap-3">
           <Link
+            href="/recruitment/form"
+            className="rounded-lg px-2.5 py-2 text-sm font-medium text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+          >
+            Application form
+          </Link>
+          <Link
             href="/account"
             className="rounded-lg px-2.5 py-2 text-sm font-medium text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
           >

@@ -18,6 +18,13 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const supabase = createClient();
+  // Pull any new public applications onto the board (Stage 1) before loading.
+  // Ignore errors here (e.g. migration 0038 not yet applied) so the board
+  // still loads existing candidates regardless.
+  await supabase.rpc("recruitment_absorb_submissions").then(
+    () => undefined,
+    () => undefined
+  );
   const { data, error } = await supabase
     .from("recruitment_candidates")
     .select("data")
