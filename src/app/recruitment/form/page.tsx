@@ -33,10 +33,14 @@ export default async function RecruitmentFormPage() {
         questions: DEFAULT_QUESTIONS,
       };
 
+  // The applicant share link uses APPLY_BASE_URL when set (e.g.
+  // https://apply.mvab.app) so it doesn't carry the internal "invoice"
+  // subdomain; otherwise it falls back to whatever host HR is on.
+  const configured = process.env.APPLY_BASE_URL?.trim().replace(/\/+$/, "");
   const h = headers();
   const host = h.get("host") ?? "";
   const proto = h.get("x-forwarded-proto") ?? "https";
-  const origin = host ? `${proto}://${host}` : "";
+  const origin = configured || (host ? `${proto}://${host}` : "");
 
   return <FormEditor initialForm={form} origin={origin} />;
 }
