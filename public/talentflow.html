@@ -5,6 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TalentFlow HR — Candidate Interview Pipeline</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Align TalentFlow with the MathVision / Global Online palette: the indigo
+    // accent is retuned to the MathVision deep indigo (#2e3192) and a `brand`
+    // orange scale (#f05a2b) is added for highlights — cohesive with the
+    // invoicing area, but indigo-led so recruitment stays visually distinct.
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            indigo: {
+              50: '#eef0fb', 100: '#dadef6', 200: '#bcc2ee', 300: '#949ddf',
+              400: '#6f78cd', 500: '#4e55b4', 600: '#2e3192', 700: '#272a7d',
+              800: '#222463', 900: '#1e2052', 950: '#141535',
+            },
+            brand: {
+              50: '#fff4ef', 100: '#ffe4d9', 200: '#fecab4', 300: '#fca585',
+              400: '#f87a52', 500: '#f05a2b', 600: '#e04418', 700: '#ba3315',
+              800: '#942a18', 900: '#782517', 950: '#41100a',
+            },
+          },
+        },
+      },
+    };
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -70,7 +94,7 @@
     <!-- Left: Brand & View Switcher -->
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+        <div class="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
           TF
         </div>
         <div>
@@ -153,11 +177,6 @@
         <option value="Weekend Staff">Weekend staff</option>
         <option value="Supreme HR">Supreme HR</option>
       </select>
-
-      <button onclick="openSheetSyncModal()" class="px-2.5 py-1.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1" title="Connect Google Form / Google Sheet">
-        <span>⚡ Auto-Sync Form</span>
-        <span id="autoSyncDot" class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-      </button>
 
       <div class="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
         <select id="csvSourceSelect" title="Label imported CSV rows" class="py-1.5 px-1.5 text-xs bg-slate-50 text-slate-700 border-r border-slate-200 focus:outline-none">
@@ -777,8 +796,16 @@
       }
     }
 
-    async function persistAllCandidates() {
-      updateSyncBadge('Saving…', 'bg-amber-400');
+    // Saves are debounced so a burst of edits (drag-drop across stages, bulk
+    // field changes) collapses into one replace-all POST instead of many. The
+    // badge flips to "Saving…" immediately; a beforeunload beacon flushes any
+    // pending write so a quick tab close can't drop the last change.
+    let _saveTimer = null;
+    let _savePending = false;
+
+    async function _flushCandidates() {
+      _saveTimer = null;
+      _savePending = false;
       try {
         const res = await fetch('/recruitment/api/candidates', {
           method: 'POST',
@@ -793,6 +820,25 @@
         updateSyncBadge('Save failed — check connection', 'bg-rose-500');
       }
     }
+
+    function persistAllCandidates() {
+      updateSyncBadge('Saving…', 'bg-amber-400');
+      _savePending = true;
+      if (_saveTimer) clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(_flushCandidates, 600);
+      return Promise.resolve();
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (!_savePending) return;
+      try {
+        const blob = new Blob([JSON.stringify({ candidates })], { type: 'application/json' });
+        navigator.sendBeacon('/recruitment/api/candidates', blob);
+        _savePending = false;
+      } catch (err) {
+        /* best-effort flush on unload */
+      }
+    });
 
     function updateSyncBadge(text, dotColorClass) {
       const dot = document.getElementById('syncIndicatorDot');
@@ -1715,12 +1761,28 @@
     // =========================================================================
     // 5A. SAVED BOSS / RECIPIENT WHATSAPP NUMBER HELPERS
     // =========================================================================
-    const LS_BOSS_PHONE_KEY = 'talentflow_hr_boss_whatsapp_v1';
+    const BOSS_PHONE_SETTING_KEY = 'boss_whatsapp';
     const DEFAULT_BOSS_PHONE = '93578051';
+    // Cached in memory; the source of truth is the Supabase settings store
+    // (loaded once at startup via loadBossNumberFromServer).
+    let bossNumberCache = '';
 
     function getSavedBossDisplayNumber() {
-      const saved = (localStorage.getItem(LS_BOSS_PHONE_KEY) || '').trim();
-      return saved || DEFAULT_BOSS_PHONE;
+      return (bossNumberCache || '').trim() || DEFAULT_BOSS_PHONE;
+    }
+
+    async function loadBossNumberFromServer() {
+      try {
+        const res = await fetch('/recruitment/api/settings', { credentials: 'same-origin' });
+        if (!res.ok) return;
+        const json = await res.json();
+        const val = json && json.settings ? json.settings[BOSS_PHONE_SETTING_KEY] : '';
+        if (typeof val === 'string' && val.trim()) {
+          bossNumberCache = val.trim();
+        }
+      } catch (err) {
+        console.error('Recruitment settings load error:', err);
+      }
     }
 
     function formatWhatsAppTargetDigits(rawInput) {
@@ -1755,7 +1817,7 @@
       updateSummaryModalWaLink();
     }
 
-    function saveBossPhoneNumber() {
+    async function saveBossPhoneNumber() {
       const phoneInput = document.getElementById('bossPhoneInput');
       if (!phoneInput) return;
       const cleaned = phoneInput.value.trim();
@@ -1764,10 +1826,22 @@
         phoneInput.focus();
         return;
       }
-      localStorage.setItem(LS_BOSS_PHONE_KEY, cleaned);
+      bossNumberCache = cleaned;
       refreshBossNumberLabels();
       updateSummaryModalWaLink();
-      showToast(`Saved recipient number: ${cleaned}`);
+      try {
+        const res = await fetch('/recruitment/api/settings', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: BOSS_PHONE_SETTING_KEY, value: cleaned }),
+        });
+        if (!res.ok) throw new Error('save failed: ' + res.status);
+        showToast(`Saved recipient number: ${cleaned}`);
+      } catch (err) {
+        console.error('Recruitment settings save error:', err);
+        showToast('Could not save recipient number — check connection');
+      }
     }
 
     function initSummaryModalRecipient() {
@@ -3067,7 +3141,10 @@
 
     // Boot Application
     (async function initApp() {
-      await loadCandidatesFromStorage();
+      await Promise.all([
+        loadCandidatesFromStorage(),
+        loadBossNumberFromServer(),
+      ]);
       await runAutomatedStageLifecycle(false);
       refreshBossNumberLabels();
       renderAll();
@@ -3076,10 +3153,8 @@
           if (changed) renderAll();
         });
       }, 60000);
-      if (getConfiguredSheets().length > 0) {
-        syncGoogleSheetNow(true).catch(() => {});
-        startSheetAutoPolling();
-      }
+      // Google Sheets / Form auto-sync removed: candidates are created in-app
+      // (Add Candidate) and CSV import, with all data held in Supabase.
     })();
   </script>
 </body>
